@@ -1,0 +1,64 @@
+# Production overrides: bundled Traefik (TLS at the edge) on gsad_traefik network.
+services:
+  traefik:
+    image: traefik:v3.7
+    profiles: ["prod"]
+    restart: unless-stopped
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - traefik_acme:/acme
+    networks:
+      - traefik
+    security_opt:
+      - no-new-privileges:true
+
+  backend:
+    ports:
+      - "${BACKEND_AGENT_PORT:-8080}:8080"
+    networks:
+      - internal
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=gsad_traefik
+      - traefik.http.middlewares.gsad-forbidden.directresponse.statuscode=403
+      - traefik.http.routers.gsad-block.rule=Host(`${GSAD_PUBLIC_HOST}`) && PathPrefix(`/api/internal`)
+      - traefik.http.routers.gsad-block.entrypoints=websecure
+      - traefik.http.routers.gsad-block.tls=true
+      - traefik.http.routers.gsad-block.tls.certresolver=letsencrypt
+      - traefik.http.routers.gsad-block.priority=100
+      - traefik.http.routers.gsad-block.middlewares=gsad-forbidden
+      - traefik.http.routers.gsad-block.service=gsad-api
+      - traefik.http.routers.gsad-api.rule=Host(`${GSAD_PUBLIC_HOST}`) && PathPrefix(`/api`)
+      - traefik.http.routers.gsad-api.entrypoints=websecure
+      - traefik.http.routers.gsad-api.tls=true
+      - traefik.http.routers.gsad-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.gsad-api.priority=10
+      - traefik.http.services.gsad-api.loadbalancer.server.port=8080
+
+  frontend:
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=gsad_traefik
+      - traefik.http.routers.gsad-ui.rule=Host(`${GSAD_PUBLIC_HOST}`)
+      - traefik.http.routers.gsad-ui.entrypoints=websecure
+      - traefik.http.routers.gsad-ui.tls=true
+      - traefik.http.routers.gsad-ui.tls.certresolver=letsencrypt
+      - traefik.http.routers.gsad-ui.priority=1
+      - traefik.http.services.gsad-ui.loadbalancer.server.port=80
+
+networks:
+  traefik:
+    name: gsad_traefik
+
+volumes:
+  traefik_acme:

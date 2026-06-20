@@ -1,0 +1,13 @@
+# Local development overrides: expose infra ports on the host.
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  backend:
+    ports:
+      - "8080:8080"

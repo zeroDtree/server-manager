@@ -1,0 +1,9 @@
+[submodule "server-agent"]
+	path = server-agent
+	url = git@github.com:zeroDtree/server-agent.git
+[submodule "gsad-frontend"]
+	path = gsad-frontend
+	url = git@github.com:zeroDtree/gsad-frontend.git
+[submodule "gsad-backend"]
+	path = gsad-backend
+	url = git@github.com:zeroDtree/gsad-backend.git

@@ -1,0 +1,37 @@
+# Local prod stack: HTTP-only Traefik (no TLS / ACME). Use with compose.prod.yaml.
+# Set GSAD_PUBLIC_HOST=localhost in .env
+services:
+  traefik:
+    command: !override
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=gsad_traefik"
+      - "--entrypoints.web.address=:80"
+    ports: !override
+      - "80:80"
+    volumes: !override
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  backend:
+    labels: !override
+      - traefik.enable=true
+      - traefik.docker.network=gsad_traefik
+      - traefik.http.middlewares.gsad-forbidden.directresponse.statuscode=403
+      - traefik.http.routers.gsad-block.rule=Host(`${GSAD_PUBLIC_HOST}`) && PathPrefix(`/api/internal`)
+      - traefik.http.routers.gsad-block.entrypoints=web
+      - traefik.http.routers.gsad-block.priority=100
+      - traefik.http.routers.gsad-block.middlewares=gsad-forbidden
+      - traefik.http.routers.gsad-block.service=gsad-api
+      - traefik.http.routers.gsad-api.rule=Host(`${GSAD_PUBLIC_HOST}`) && PathPrefix(`/api`)
+      - traefik.http.routers.gsad-api.entrypoints=web
+      - traefik.http.routers.gsad-api.priority=10
+      - traefik.http.services.gsad-api.loadbalancer.server.port=8080
+
+  frontend:
+    labels: !override
+      - traefik.enable=true
+      - traefik.docker.network=gsad_traefik
+      - traefik.http.routers.gsad-ui.rule=Host(`${GSAD_PUBLIC_HOST}`)
+      - traefik.http.routers.gsad-ui.entrypoints=web
+      - traefik.http.routers.gsad-ui.priority=1
+      - traefik.http.services.gsad-ui.loadbalancer.server.port=80

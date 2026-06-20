@@ -1,0 +1,27 @@
+# Local environment (template: dockers/.env.example)
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*~
+
+# Traefik ACME store if bind-mounted locally (prod uses named volume traefik_acme)
+dockers/traefik/acme.json
+
+# Optional personal compose overrides (keep compose.override.yaml tracked for dev profile)
+compose.override.local.yaml
+compose.local.yaml
+
+# Logs
+*.log
