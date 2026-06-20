@@ -3,10 +3,10 @@ FROM maven:3.9-eclipse-temurin-21-alpine AS build
 WORKDIR /workspace
 
 # Cache dependencies separately from source code
-COPY backend/gsad/pom.xml .
+COPY gsad-backend/pom.xml .
 RUN mvn dependency:go-offline -q
 
-COPY backend/gsad/src ./src
+COPY gsad-backend/src ./src
 RUN mvn package -DskipTests -q
 
 # Stage 2: runtime (reuse same Temurin base as build — avoids extra Docker Hub pull)

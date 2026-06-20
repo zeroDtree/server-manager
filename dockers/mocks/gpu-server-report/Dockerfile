@@ -2,7 +2,7 @@ FROM alpine:3.21
 
 RUN apk add --no-cache bash curl
 
-COPY backend/gsad/dev/gpu-server-report-mock/report-loop.sh /report-loop.sh
+COPY gsad-backend/dev/gpu-server-report-mock/report-loop.sh /report-loop.sh
 RUN chmod +x /report-loop.sh
 
 ENV REPORT_API_URL=http://backend:8080

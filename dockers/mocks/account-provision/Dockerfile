@@ -2,10 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY backend/gsad/dev/account-provision-mock/requirements.txt .
+COPY gsad-backend/dev/account-provision-mock/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend/gsad/dev/account-provision-mock/provision_loop.py .
+COPY gsad-backend/dev/account-provision-mock/provision_loop.py .
 
 ENV GSAD_API_URL=http://backend:8080
 ENV AGENT_PSK=change-me-in-production
