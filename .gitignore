@@ -25,3 +25,4 @@ compose.local.yaml
 
 # Logs
 *.log
+/test/
