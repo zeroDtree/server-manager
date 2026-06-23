@@ -33,15 +33,13 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=gsad_traefik
-      - traefik.http.middlewares.gsad-forbidden.directresponse.statuscode=403
       - traefik.http.routers.gsad-block.rule=Host(`${GSAD_PUBLIC_HOST}`) && PathPrefix(`/api/internal`)
       - traefik.http.routers.gsad-block.entrypoints=websecure
       - traefik.http.routers.gsad-block.tls=true
       - traefik.http.routers.gsad-block.tls.certresolver=letsencrypt
       - traefik.http.routers.gsad-block.priority=100
-      - traefik.http.routers.gsad-block.middlewares=gsad-forbidden
-      - traefik.http.routers.gsad-block.service=gsad-api
-      - traefik.http.routers.gsad-api.rule=Host(`${GSAD_PUBLIC_HOST}`) && PathPrefix(`/api`)
+      - traefik.http.routers.gsad-block.service=noop@internal
+      - traefik.http.routers.gsad-api.rule=Host(`${GSAD_PUBLIC_HOST}`) && PathPrefix(`/api`) && !PathPrefix(`/api/internal`)
       - traefik.http.routers.gsad-api.entrypoints=websecure
       - traefik.http.routers.gsad-api.tls=true
       - traefik.http.routers.gsad-api.tls.certresolver=letsencrypt

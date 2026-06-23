@@ -127,15 +127,40 @@ Traefik terminates HTTPS (Let's Encrypt). Agent access uses a separate HTTP port
 ### Local prod-like stack (HTTP only)
 
 ```bash
-# In .env: SPRING_PROFILES_ACTIVE=prod, GSAD_PUBLIC_HOST=localhost
-docker compose -f compose.yaml -f dockers/compose.prod.yaml -f dockers/compose.prod-local.yaml --profile prod up -d --build
+SPRING_PROFILES_ACTIVE=prod GSAD_PUBLIC_HOST=localhost docker compose \
+  -f compose.yaml \
+  -f dockers/compose.prod.yaml \
+  -f dockers/compose.prod-local.yaml \
+  --profile prod up -d --build
 ```
 
 Open `http://localhost/` (UI) and `http://localhost/api/*` (public API).
 
+**Reset (clean DB)** — use when switching from dev/mock or re-testing bootstrap. Use the **same** `-f` files and `--profile prod` as start, or Compose may target the wrong project/volumes:
+
+```bash
+SPRING_PROFILES_ACTIVE=prod GSAD_PUBLIC_HOST=localhost docker compose \
+  -f compose.yaml \
+  -f dockers/compose.prod.yaml \
+  -f dockers/compose.prod-local.yaml \
+  --profile prod down -v
+```
+
+Then bring the stack back:
+
+```bash
+SPRING_PROFILES_ACTIVE=prod GSAD_PUBLIC_HOST=localhost docker compose \
+  -f compose.yaml \
+  -f dockers/compose.prod.yaml \
+  -f dockers/compose.prod-local.yaml \
+  --profile prod up -d --build
+```
+
+**`down -v` deletes `postgres_data`** (and other named volumes in this project). Dev seed admin (`admin@gsad.local`) and mock servers are removed.
+
 **GPU hosts:** deploy [server-agent](server-agent/) on each machine — see [Agent access & security](#agent-access--security) and [server-agent/README.md](server-agent/README.md).
 
-Prod Flyway is schema-only; servers register via the agent report API. There is **no seeded admin** in prod — create the first admin with [`create-prod-admin.sh`](gsad-backend/deploy/scripts/create-prod-admin.sh) after the stack is healthy.
+Prod Flyway is schema-only; servers register via the agent report API. There is **no seeded admin** in prod — create the first admin with [`create-prod-admin.sh`](gsad-backend/deploy/scripts/create-prod-admin.sh) after the stack is healthy (see [First admin](#first-admin-prod-bootstrap)).
 
 ### First admin (prod bootstrap)
 
@@ -145,11 +170,25 @@ After `backend` and `postgres` are healthy, from the repo root:
 ADMIN_EMAIL=admin@example.com ./gsad-backend/deploy/scripts/create-prod-admin.sh
 ```
 
-The script is **idempotent**: if an admin already exists, it exits without changes. Prompts for a password unless `ADMIN_PASSWORD` is set (do **not** store bootstrap passwords in `.env`).
+Or set the password inline (do **not** store bootstrap passwords in `.env`):
+
+```bash
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='your-strong-password' ./gsad-backend/deploy/scripts/create-prod-admin.sh
+```
+
+The script is **idempotent**: if an admin already exists, it exits without changes. For a clean prod-local bootstrap after dev/mock, run [`down -v`](#local-prod-like-stack-http-only) first, then `up` and this script again.
 
 Optional env: `ADMIN_LINUX_USERNAME` (default `gsadadmin`), `ADMIN_DISPLAY_NAME` (default `Admin`).
 
-Verify login:
+Verify login (prod-local):
+
+```bash
+curl -sS -X POST "http://localhost/api/auth/login" \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@example.com","password":"<your-password>"}'
+```
+
+Verify login (real prod over HTTPS):
 
 ```bash
 curl -sS -X POST "https://${GSAD_PUBLIC_HOST}/api/auth/login" \
