@@ -22,7 +22,7 @@ docker compose --profile mock up --build
 cd gsad-frontend && npm install && npm run dev
 ```
 
-`compose.override.yaml` merges [`dockers/compose.dev.yaml`](dockers/compose.dev.yaml) automatically — backend, Postgres, and Redis bind to the host. The `mock` profile starts 30 simulated GPU agents.
+`compose.override.yaml` merges [`dockers/compose.dev.yaml`](dockers/compose.dev.yaml) automatically — backend, Postgres, and Redis bind to the host. The `mock` profile starts two dev agent containers (`account-provision-mock`, `gpu-server-report-mock`) that simulate up to **100** servers each (`MOCK_SERVER_COUNT` in [`dockers/compose.yaml`](dockers/compose.yaml)).
 
 | URL | Purpose |
 |-----|---------|
@@ -33,7 +33,7 @@ cd gsad-frontend && npm install && npm run dev
 
 Vite proxies `/api` to `http://localhost:8080` ([`gsad-frontend/vite.config.ts`](gsad-frontend/vite.config.ts)).
 
-**Dev seed data** (Flyway `dev` profile): admin `admin@gsad.local` / `Admin@123456`; 30 mock servers `gpu-mock-001` … `gpu-mock-030`. After migration changes: `docker compose down -v`, then re-up.
+**Dev seed data** (Flyway `dev` profile): admin `admin@gsad.local` / `Admin@123456`; mock servers `gpu-mock-001` … `gpu-mock-100`. After migration changes: `docker compose down -v`, then re-up.
 
 ## Architecture
 
@@ -135,11 +135,13 @@ Copy `dockers/.env.example` to `.env` at the repo root.
 | `DB_PASSWORD` / `REDIS_PASSWORD` | Data store passwords |
 | `CORS_ALLOWED_ORIGINS` | Optional prod CORS origins (comma-separated); empty when UI and API share the same host via Traefik |
 
+In `prod`, replace all placeholders in `.env` with strong random secrets; do not use values from `dockers/.env.example` as-is.
+
 ## Tests
 
 ```bash
 cd gsad-backend && ./mvnw test
-cd gsad-frontend && npm test
+cd gsad-frontend && npm run lint && npm run typecheck && npm test
 ```
 
 ## Further reading
