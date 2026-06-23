@@ -66,10 +66,9 @@ services:
   account-provision-mock:
     profiles: ["mock"]
     build:
-      context: ..
-      dockerfile: dockers/mocks/account-provision/Dockerfile
+      context: mocks/account-provision
     environment:
-      GSAD_API_URL: http://backend:8080
+      UPSTREAM_API_URL: http://backend:8080
       AGENT_PSK: ${AGENT_PSK}
       PROVISION_POLL_INTERVAL: 10
       MOCK_SERVER_COUNT: 100
@@ -82,8 +81,7 @@ services:
   gpu-server-report-mock:
     profiles: ["mock"]
     build:
-      context: ..
-      dockerfile: dockers/mocks/gpu-server-report/Dockerfile
+      context: mocks/gpu-server-report
     environment:
       REPORT_API_URL: http://backend:8080
       AGENT_PSK: ${AGENT_PSK}

@@ -69,7 +69,7 @@ Git submodules — run `git submodule update --init --recursive` after clone.
 | [gsad-backend](gsad-backend/) | REST API, Flyway, internal agent routes |
 | [gsad-frontend](gsad-frontend/) | Vue UI |
 | [server-agent](server-agent/) | account-provisioner + gpu-server-report (systemd on GPU hosts) |
-| [dockers](dockers/) | Compose files and Dockerfiles |
+| [dockers](dockers/) | Compose files, Dockerfiles, and dev mock agents (`dockers/mocks/`) |
 
 ## Production
 
