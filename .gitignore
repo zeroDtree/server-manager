@@ -26,3 +26,6 @@ compose.local.yaml
 # Logs
 *.log
 /test/
+
+# Database backups (utils/backup-postgres.sh)
+backups/

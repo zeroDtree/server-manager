@@ -1,0 +1,12 @@
+[Unit]
+Description=GSAD PostgreSQL backup
+Documentation=file:@REPO_ROOT@/README.md
+
+[Service]
+Type=oneshot
+WorkingDirectory=@REPO_ROOT@
+ExecStart=@REPO_ROOT@/utils/backup-postgres.sh
+EnvironmentFile=-@REPO_ROOT@/.env
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gsad-backup

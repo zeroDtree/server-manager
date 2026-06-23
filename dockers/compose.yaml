@@ -1,6 +1,13 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16
+    logging: *default-logging
     environment:
       POSTGRES_DB: gsad
       POSTGRES_USER: gsad
@@ -17,6 +24,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    logging: *default-logging
     command: redis-server --requirepass ${REDIS_PASSWORD}
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
@@ -27,6 +35,7 @@ services:
       - internal
 
   backend:
+    logging: *default-logging
     build:
       context: ..
       dockerfile: dockers/backend/Dockerfile
@@ -56,6 +65,7 @@ services:
 
   frontend:
     profiles: ["prod"]
+    logging: *default-logging
     build:
       context: ..
       dockerfile: dockers/frontend/Dockerfile
@@ -65,6 +75,7 @@ services:
 
   account-provision-mock:
     profiles: ["mock"]
+    logging: *default-logging
     build:
       context: mocks/account-provision
     environment:
@@ -80,6 +91,7 @@ services:
 
   gpu-server-report-mock:
     profiles: ["mock"]
+    logging: *default-logging
     build:
       context: mocks/gpu-server-report
     environment:
