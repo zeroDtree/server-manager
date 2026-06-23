@@ -119,6 +119,7 @@ Traefik terminates HTTPS (Let's Encrypt). Agent access uses a separate HTTP port
 **Network requirements (required in prod)**
 
 - Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts only — NetBird mesh CIDR, private LAN, or firewall allowlist.
+- Set `BACKEND_AGENT_BIND` to the central host's private/VPN IP (not `0.0.0.0` on internet-facing servers).
 - Do not expose `:8080` to the public internet (HTTP carries `X-Agent-PSK` in cleartext).
 - Use a long random `AGENT_PSK`; prod startup rejects the default value.
 
@@ -259,6 +260,8 @@ Copy `dockers/.env.example` to `.env` at the repo root.
 | `GSAD_PUBLIC_HOST`               | Public hostname for Traefik (prod); use `localhost` for prod-local                                  |
 | `ACME_EMAIL`                     | Let's Encrypt email (prod HTTPS)                                                                    |
 | `BACKEND_AGENT_PORT`             | Host port for GPU agent internal API (default `8080`)                                               |
+| `BACKEND_AGENT_BIND`             | Required with prod compose: private/VPN IP (or `127.0.0.1` for prod-local)                          |
+| `CREDENTIALS_ENCRYPTION_KEY`     | AES key for SSH credential columns at rest (≥32 chars; required in prod)                            |
 | `AGENT_PSK`                      | `X-Agent-PSK` for internal APIs                                                                     |
 | `JWT_SECRET`                     | JWT signing key (≥32 chars in prod)                                                                 |
 | `DB_PASSWORD` / `REDIS_PASSWORD` | Data store passwords                                                                                |
