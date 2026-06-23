@@ -197,7 +197,7 @@ curl -sS -X POST "https://${GSAD_PUBLIC_HOST}/api/auth/login" \
   -d '{"email":"admin@example.com","password":"<your-password>"}'
 ```
 
-Then import users via **Admin → Import CSV** (header: `email,linux_username,display_name,student_id,cohort,initial_password,roles`).
+Then import users via **Admin → Import CSV**. Required columns: `email`, `linux_username`, `initial_password` (min 8 chars). Optional: `display_name`, `student_id`, `cohort`, `roles`. Distribute initial passwords out-of-band — they are never returned in the API response.
 
 ### Backup schedule
 
