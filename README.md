@@ -86,7 +86,7 @@ Git submodules — run `git submodule update --init --recursive` after clone.
 | [gsad-frontend](gsad-frontend/) | Vue UI                                                             |
 | [server-agent](server-agent/)   | account-provisioner + gpu-server-report (systemd on GPU hosts)     |
 | [dockers](dockers/)             | Compose files, Dockerfiles, and dev mock agents (`dockers/mocks/`) |
-| [utils](utils/)                 | Repo-level ops scripts (DB backup, optional systemd units)         |
+| [utils](utils/)                 | Repo-level ops scripts (prod admin bootstrap, agent PSK derivation, server registration, DB backup, systemd units) |
 
 ## Production
 
@@ -122,7 +122,7 @@ Traefik terminates HTTPS (Let's Encrypt). Agent access uses a separate HTTP port
 - Set `BACKEND_AGENT_BIND` to the central host's private/VPN IP (prod rejects `0.0.0.0`).
 - Do not expose `:8080` to the public internet (HTTP carries agent credentials in cleartext).
 - Use a long random `AGENT_MASTER_SECRET` on the **backend only**; prod startup rejects the default value.
-- Per GPU host: run `./gsad-backend/deploy/scripts/derive-agent-psk.sh <AGENT_SERVER_ID>` (interactive prompt for master secret); paste the derived hex into agent `AGENT_PSK`. **Never** put `AGENT_MASTER_SECRET` on GPU hosts.
+- Per GPU host: run `./utils/derive-agent-psk.sh <AGENT_SERVER_ID>` (interactive prompt for master secret); paste the derived hex into agent `AGENT_PSK`. **Never** put `AGENT_MASTER_SECRET` on GPU hosts.
 
 **Agent config:** `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080` — see [server-agent/README.md](server-agent/README.md).
 
@@ -162,20 +162,20 @@ SPRING_PROFILES_ACTIVE=prod GSAD_PUBLIC_HOST=localhost docker compose \
 
 **GPU hosts:** deploy [server-agent](server-agent/) on each machine — see [Agent access & security](#agent-access--security) and [server-agent/README.md](server-agent/README.md).
 
-Prod Flyway is schema-only; servers register via the agent report API. There is **no seeded admin** in prod — create the first admin with [`create-prod-admin.sh`](gsad-backend/deploy/scripts/create-prod-admin.sh) after the stack is healthy (see [First admin](#first-admin-prod-bootstrap)).
+Prod Flyway is schema-only; servers register via the agent report API. There is **no seeded admin** in prod — create the first admin with [`create-prod-admin.sh`](utils/create-prod-admin.sh) after the stack is healthy (see [First admin](#first-admin-prod-bootstrap)).
 
 ### First admin (prod bootstrap)
 
 After `backend` and `postgres` are healthy, from the repo root:
 
 ```bash
-ADMIN_EMAIL=admin@example.com ./gsad-backend/deploy/scripts/create-prod-admin.sh
+ADMIN_EMAIL=admin@example.com ./utils/create-prod-admin.sh
 ```
 
 Or set the password inline (do **not** store bootstrap passwords in `.env`):
 
 ```bash
-ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='your-strong-password' ./gsad-backend/deploy/scripts/create-prod-admin.sh
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='your-strong-password' ./utils/create-prod-admin.sh
 ```
 
 The script is **idempotent**: if an admin already exists, it exits without changes. For a clean prod-local bootstrap after dev/mock, run [`down -v`](#local-prod-like-stack-http-only) first, then `up` and this script again.
@@ -240,9 +240,9 @@ gunzip -c backups/gsad_YYYYMMDD_HHMMSS.sql.gz | docker compose exec -T postgres 
 2. Point DNS for `GSAD_PUBLIC_HOST` at the host; open ports 80 and 443.
 3. Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts / VPN CIDR only — never expose it on the public internet.
 4. Start the prod stack; wait for `backend` health OK.
-5. Run [`create-prod-admin.sh`](gsad-backend/deploy/scripts/create-prod-admin.sh); log in and change the bootstrap password.
+5. Run [`create-prod-admin.sh`](utils/create-prod-admin.sh); log in and change the bootstrap password.
 6. Import users via Admin CSV import.
-7. Deploy [server-agent](server-agent/) on each GPU host: register `AGENT_SERVER_ID`, derive `AGENT_PSK` via [`derive-agent-psk.sh`](gsad-backend/deploy/scripts/derive-agent-psk.sh) (interactive; master secret typed at prompt, not stored on agent).
+7. Deploy [server-agent](server-agent/) on each GPU host: register `AGENT_SERVER_ID`, derive `AGENT_PSK` via [`derive-agent-psk.sh`](utils/derive-agent-psk.sh) (interactive; master secret typed at prompt, not stored on agent).
 8. Enable backup cron or systemd timer; test a restore periodically.
 
 **Security:** do not use placeholder secrets from [`dockers/.env.example`](dockers/.env.example); prod disables Swagger; agent auth uses derived PSK + `X-Agent-Server-Id` over HTTP on the private port.
