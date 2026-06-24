@@ -156,4 +156,4 @@ if [[ "${inserted:-0}" -ne 1 ]]; then
 fi
 
 log "created admin: ${ADMIN_EMAIL} (linux_username=${ADMIN_LINUX_USERNAME})"
-log "log in via the UI or POST /api/auth/login, then change the password if this was a one-time bootstrap password"
+log "log in via the UI or POST /api/auth/login, then change the password at Account → Change password (sidebar)"

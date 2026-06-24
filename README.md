@@ -122,7 +122,7 @@ curl -sS -X POST "https://${GSAD_PUBLIC_HOST}/api/auth/login" \
   -d '{"email":"admin@example.com","password":"<your-password>"}'
 ```
 
-Then import users via **Admin → Import CSV**. Required columns: `email`, `linux_username`, `initial_password` (min 8 chars). Optional: `display_name`, `student_id`, `cohort`, `roles`. Distribute initial passwords out-of-band — they are never returned in the API response.
+Then import users via **Admin → Import CSV**. Required columns: `email`, `linux_username`, `initial_password` (min 8 chars). Optional: `display_name`, `student_id`, `cohort`, `roles`. Distribute initial passwords out-of-band — they are never returned in the API response. Admins can reset a user's login password from **Admin → Users** (non-admin accounts only).
 
 ### Agent PSK (per GPU host)
 
@@ -184,7 +184,7 @@ gunzip -c backups/gsad_YYYYMMDD_HHMMSS.sql.gz | docker compose exec -T postgres 
 2. Point DNS for `GSAD_PUBLIC_HOST` at the host; open ports 80 and 443.
 3. Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts / VPN CIDR only — never expose it on the public internet.
 4. Start the prod stack; wait for `backend` health OK.
-5. Run [`create-prod-admin.sh`](utils/create-prod-admin.sh); log in and change the bootstrap password.
+5. Run [`create-prod-admin.sh`](utils/create-prod-admin.sh); log in and change the bootstrap password via **Account → Change password** in the sidebar (or `POST /api/auth/change-password`).
 6. Import users via Admin CSV import.
 7. Deploy [server-agent](server-agent/) on each GPU host: register `AGENT_SERVER_ID`, then [derive `AGENT_PSK`](#agent-psk-per-gpu-host).
 8. Enable backup cron or systemd timer; test a restore periodically.
