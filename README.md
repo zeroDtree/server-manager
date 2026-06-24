@@ -3,27 +3,37 @@
 GPU server access management: users apply for SSH access; agents on GPU hosts provision accounts and report metrics. Stack: Spring Boot 4 / Java 21, Vue 3 + Vite, PostgreSQL 16, Redis 7, Traefik v3.
 
 ```mermaid
-flowchart LR
-  subgraph dev [Dev]
-    UI[Vite_UI_5173]
-    API[Backend_8080]
-    UI -->|"/api proxy"| API
+flowchart TB
+  Browser(["Users / browser"])
+
+  subgraph central ["Central host (Docker)"]
+    Traefik["Traefik :443"]
+    UI["Vue UI"]
+    API["Backend :8080"]
+    Traefik --> UI
+    Traefik -->|"/api (JWT)"| API
   end
-  subgraph data [Data]
+
+  subgraph data ["Data"]
     PG[(PostgreSQL)]
     RD[(Redis)]
   end
+
+  subgraph agents ["GPU hosts"]
+    Prov[account-provisioner]
+    Rep[gpu-server-report]
+  end
+
+  Browser -->|HTTPS| Traefik
   API --> PG
   API --> RD
-  subgraph agents [GPU_hosts]
-    Prov[account_provisioner]
-    Rep[gpu_server_report]
-  end
-  Prov -->|"/api/internal"| API
-  Rep -->|"/api/internal"| API
+  Prov -->|"HTTP :8080 /api/internal"| API
+  Rep -->|"HTTP :8080 /api/internal"| API
 ```
 
-In production, traffic splits into two paths: users reach the UI and public `/api` over HTTPS via Traefik; GPU agents reach `/api/internal/*` over plain HTTP on `BACKEND_AGENT_PORT` (see [Agent access & security](#agent-access--security)).
+**Production** — two entry paths: users reach the UI and public `/api` over HTTPS via Traefik (`:443`); GPU agents call `/api/internal/*` on plain HTTP at `BACKEND_AGENT_PORT` on the host's private/VPN IP (Traefik blocks those routes on `:443`). See [Agent access & security](#agent-access--security).
+
+**Development** — Vite on `:5173` proxies `/api` to the backend on `:8080`; optional mock agents run in Docker. See [docs/dev.md](docs/dev.md).
 
 ## Prerequisites
 
@@ -140,6 +150,15 @@ Capture stdout for agent config (prints only the derived hex):
 AGENT_PSK=$(./utils/derive-agent-psk.sh gpu-node-01)
 ```
 
+**Batch (many hosts):** put `server_id` in a CSV (optional extra columns preserved), prompt once for the master secret, get `agent_psk` per row:
+
+```bash
+./utils/derive-agent-psk-batch.sh servers.csv -o agents-with-psk.csv
+chmod 600 agents-with-psk.csv
+```
+
+Stdout-only (redirect yourself): `./utils/derive-agent-psk-batch.sh servers.csv > agents-with-psk.csv`. Output contains secrets — do not commit.
+
 Paste the hex into the agent's `AGENT_PSK` in [`server-agent/deploy/env/common.env`](server-agent/deploy/env/common.env). **Never** deploy `AGENT_MASTER_SECRET` to GPU hosts.
 
 Set `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080` on each agent — see [Agent access & security](#agent-access--security) and [server-agent/README.md](server-agent/README.md).
@@ -219,7 +238,7 @@ Copy `dockers/.env.example` to `.env` at the repo root.
 | `BACKEND_AGENT_PORT`             | Host port for GPU agent internal API (default `8080`)                                                                                          |
 | `BACKEND_AGENT_BIND`             | Required with prod compose: private/VPN IP (or `127.0.0.1` for prod-local)                                                                     |
 | `CREDENTIALS_ENCRYPTION_KEY`     | AES key for SSH credential columns at rest (≥32 chars; required in prod)                                                                       |
-| `AGENT_MASTER_SECRET`            | Backend-only master secret (≥32 chars); used to derive per-host `AGENT_PSK` via interactive `derive-agent-psk.sh` — never deploy to GPU agents |
+| `AGENT_MASTER_SECRET`            | Backend-only master secret (≥32 chars); used to derive per-host `AGENT_PSK` via [`derive-agent-psk.sh`](utils/derive-agent-psk.sh) or [`derive-agent-psk-batch.sh`](utils/derive-agent-psk-batch.sh) — never deploy to GPU agents |
 | `JWT_SECRET`                     | JWT signing key (≥32 chars in prod)                                                                                                            |
 | `DB_PASSWORD` / `REDIS_PASSWORD` | Data store passwords                                                                                                                           |
 | `CORS_ALLOWED_ORIGINS`           | Optional prod CORS origins (comma-separated); empty when UI and API share the same host via Traefik                                            |

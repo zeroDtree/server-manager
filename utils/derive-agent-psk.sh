@@ -18,10 +18,14 @@
 
 set -euo pipefail
 
-MIN_MASTER_SECRET_LENGTH=32
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/agent-psk.sh"
 
-log() { printf 'derive-agent-psk: %s\n' "$*" >&2; }
-die() { printf 'derive-agent-psk: ERROR: %s\n' "$*" >&2; exit 1; }
+AGENT_PSK_LOG_PREFIX=derive-agent-psk
+
+log() { agent_psk_log "$@"; }
+die() { agent_psk_die "$@"; }
 
 usage() {
   awk '/^# @help-begin$/{f=1; next} /^# @help-end$/{f=0} f' "$0"
@@ -46,30 +50,6 @@ fi
 
 server_id="$1"
 
-if [[ -n "${AGENT_MASTER_SECRET:-}" ]]; then
-  log "WARNING: AGENT_MASTER_SECRET is set in the environment; ignoring it (enter secret at prompt)"
-fi
-
-if [[ ! -r /dev/tty ]]; then
-  die "Interactive terminal required; run this script directly on a TTY"
-fi
-
-read -rsp "Agent master secret: " master_secret </dev/tty
-printf '\n' >&2
-read -rsp "Confirm master secret: " master_secret_confirm </dev/tty
-printf '\n' >&2
-
-if [[ "$master_secret" != "$master_secret_confirm" ]]; then
-  unset master_secret master_secret_confirm
-  die "Master secrets do not match"
-fi
-unset master_secret_confirm
-
-if [[ ${#master_secret} -lt $MIN_MASTER_SECRET_LENGTH ]]; then
-  unset master_secret
-  die "Master secret must be at least ${MIN_MASTER_SECRET_LENGTH} characters"
-fi
-
-printf '%s' "$server_id" | openssl dgst -sha256 -hmac "$master_secret" -hex | awk '{print $2}'
-
+agent_psk_read_master_secret
+agent_psk_derive_hex "$server_id" "$master_secret"
 unset master_secret
