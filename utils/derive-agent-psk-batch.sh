@@ -9,15 +9,25 @@
 #   ./derive-agent-psk-batch.sh -o agents-with-psk.csv servers.csv
 #
 # Input CSV: header row required; column server_id (case-insensitive) is required.
-# Optional columns are preserved in output. Commas inside field values are not supported.
+# Optional columns (ssh_host, resource_level, etc.) are preserved in output.
+# Commas inside field values are not supported.
 #
 # Output CSV: input columns plus agent_psk. Default destination is stdout; use -o to write a file.
-# Progress and summary go to stderr. Output contains secrets — chmod 600 and do not commit.
+# Progress and summary go to stderr. When stderr is a TTY, shows a live progress bar during derivation.
+# Output contains secrets — chmod 600 and do not commit.
+#
+# The output CSV is import-ready for Admin → 服务器导入 (agent_psk column is ignored by the API).
+# Use agent_psk from the same file when deploying server-agent on each GPU host.
 #
 # Example input:
-#   server_id,ssh_host
-#   gpu-node-01,10.0.0.11
-#   gpu-node-02,10.0.0.12
+#   server_id
+#   gpu-node-01
+#   gpu-node-02
+#
+# Example output:
+#   server_id,agent_psk
+#   gpu-node-01,<hex>
+#   gpu-node-02,<hex>
 # @help-end
 
 # @help-options-begin
@@ -51,7 +61,8 @@ read_csv_field_at() {
   local fields_csv="$1"
   local index="$2"
   local -a fields=()
-  IFS=',' read -r -a fields <<<"$fields_csv"
+  IFS=',' read -r -a fields <<<"${fields_csv},__SENTINEL__"
+  fields=("${fields[@]:0:$((${#fields[@]} - 1))}")
   if (( index < 0 || index >= ${#fields[@]} )); then
     printf ''
     return
@@ -87,12 +98,56 @@ write_csv_line() {
 server_id_seen() {
   local needle="$1"
   local id
+  if (( ${#seen_server_ids[@]} == 0 )); then
+    return 1
+  fi
   for id in "${seen_server_ids[@]}"; do
     if [[ "$id" == "$needle" ]]; then
       return 0
     fi
   done
   return 1
+}
+
+count_csv_data_rows() {
+  local path="$1"
+  local count=0
+  local line
+  local first=1
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if (( first )); then
+      first=0
+      continue
+    fi
+    if [[ -z "${line//[[:space:]]/}" ]]; then
+      continue
+    fi
+    count=$((count + 1))
+  done <"$path"
+  printf '%s' "$count"
+}
+
+PROGRESS_BAR_WIDTH=40
+
+progress_render() {
+  local current="$1"
+  local total="$2"
+  if [[ ! -t 2 ]] || (( total == 0 )); then
+    return
+  fi
+  local pct=$((current * 100 / total))
+  local filled=$((current * PROGRESS_BAR_WIDTH / total))
+  local empty=$((PROGRESS_BAR_WIDTH - filled))
+  local bar spaces
+  bar="$(printf '%*s' "$filled" '' | tr ' ' '=')"
+  spaces="$(printf '%*s' "$empty" '')"
+  printf '\r\033[KDeriving PSKs: [%s%s] %d/%d (%d%%)' "$bar" "$spaces" "$current" "$total" "$pct" >&2
+}
+
+progress_finish() {
+  if [[ -t 2 ]]; then
+    printf '\n' >&2
+  fi
 }
 
 output_file=""
@@ -145,7 +200,7 @@ declare -a seen_server_ids=()
 derived_count=0
 
 header_line=""
-if ! IFS= read -r header_line || [[ -z "${header_line//[[:space:]]/}" ]]; then
+if ! IFS= read -r header_line <"$csv_path" || [[ -z "${header_line//[[:space:]]/}" ]]; then
   unset master_secret
   die "CSV file is missing a header row"
 fi
@@ -167,6 +222,8 @@ if (( server_id_index < 0 )); then
   die "CSV header is missing required column: server_id"
 fi
 
+total_rows="$(count_csv_data_rows "$csv_path")"
+
 output_header=("${header_fields[@]}" "agent_psk")
 
 if [[ -n "$output_file" ]]; then
@@ -179,30 +236,36 @@ else
 fi
 
 row_number=1
-while IFS= read -r line || [[ -n "$line" ]]; do
-  row_number=$((row_number + 1))
-  if [[ -z "${line//[[:space:]]/}" ]]; then
-    continue
-  fi
+{
+  IFS= read -r _csv_header || true
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    row_number=$((row_number + 1))
+    if [[ -z "${line//[[:space:]]/}" ]]; then
+      continue
+    fi
 
-  declare -a row_fields=()
-  IFS=',' read -r -a row_fields <<<"$line"
-  server_id="$(agent_psk_trim "$(read_csv_field_at "$line" "$server_id_index")")"
-  if [[ -z "$server_id" ]]; then
-    unset master_secret
-    die "Row ${row_number}: server_id is required"
-  fi
-  if server_id_seen "$server_id"; then
-    unset master_secret
-    die "Row ${row_number}: duplicate server_id in CSV: ${server_id}"
-  fi
-  seen_server_ids+=("$server_id")
+    declare -a output_row=()
+    server_id="$(agent_psk_trim "$(read_csv_field_at "$line" "$server_id_index")")"
+    if [[ -z "$server_id" ]]; then
+      unset master_secret
+      die "Row ${row_number}: server_id is required"
+    fi
+    if server_id_seen "$server_id"; then
+      unset master_secret
+      die "Row ${row_number}: duplicate server_id in CSV: ${server_id}"
+    fi
+    seen_server_ids+=("$server_id")
 
-  agent_psk="$(agent_psk_derive_hex "$server_id" "$master_secret")"
-  output_row=("${row_fields[@]}" "$agent_psk")
-  write_csv_line "$csv_sink" "${output_row[@]}"
-  derived_count=$((derived_count + 1))
-done <"$csv_path"
+    agent_psk="$(agent_psk_derive_hex "$server_id" "$master_secret")"
+    for (( i = 0; i < ${#header_fields[@]}; i++ )); do
+      output_row+=("$(agent_psk_trim "$(read_csv_field_at "$line" "$i")")")
+    done
+    output_row+=("$agent_psk")
+    write_csv_line "$csv_sink" "${output_row[@]}"
+    derived_count=$((derived_count + 1))
+    progress_render "$derived_count" "$total_rows"
+  done
+} <"$csv_path"
 
 unset master_secret
 
@@ -210,6 +273,7 @@ if (( derived_count == 0 )); then
   die "No data rows found in CSV"
 fi
 
+progress_finish
 log "derived ${derived_count} PSK(s)"
 if [[ -n "$output_file" ]]; then
   log "wrote ${output_file} (contains secrets — chmod 600 and do not commit)"

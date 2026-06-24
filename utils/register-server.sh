@@ -8,7 +8,7 @@
 #   ./register-server.sh
 #
 # Env: SERVER_ID — server id, e.g. gpu-01 (required)
-# Env: RESOURCE_LEVEL — GPU tier label, e.g. H100 (required)
+# Env: RESOURCE_LEVEL — optional GPU tier label, e.g. H100
 # Env: SSH_HOST — optional management IP or hostname
 # Env: COMPOSE_FILE — optional docker compose file override
 # Env: SPRING_PROFILES_ACTIVE — selects compose files when COMPOSE_FILE is unset
@@ -67,16 +67,16 @@ cd "$REPO_ROOT"
 if [[ -z "${SERVER_ID:-}" ]]; then
   die "SERVER_ID is required (see --help)"
 fi
-if [[ -z "${RESOURCE_LEVEL:-}" ]]; then
-  die "RESOURCE_LEVEL is required (see --help)"
-fi
 
 if ! compose_cmd ps --status running postgres 2>/dev/null | grep -q postgres; then
   die "postgres container is not running; start the stack first"
 fi
 
 server_id_sql="$(escape_sql_literal "$SERVER_ID")"
-resource_sql="$(escape_sql_literal "$RESOURCE_LEVEL")"
+resource_sql="NULL"
+if [[ -n "${RESOURCE_LEVEL:-}" ]]; then
+  resource_sql="$(escape_sql_literal "$RESOURCE_LEVEL")"
+fi
 ssh_host_sql="NULL"
 if [[ -n "${SSH_HOST:-}" ]]; then
   ssh_host_sql="$(escape_sql_literal "$SSH_HOST")"
@@ -91,4 +91,4 @@ SET resource_level = EXCLUDED.resource_level,
     updated_at = NOW();
 SQL
 
-log "registered server ${SERVER_ID} (${RESOURCE_LEVEL})"
+log "registered server ${SERVER_ID}${RESOURCE_LEVEL:+" (${RESOURCE_LEVEL})"}"

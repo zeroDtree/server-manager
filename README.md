@@ -99,7 +99,7 @@ Ongoing prod setup and ops after the stack is running (prod or prod-local).
 
 ### First admin (prod bootstrap)
 
-Prod Flyway is schema-only; servers register via the agent report API. There is **no seeded admin** in prod — create the first admin with [`create-prod-admin.sh`](utils/create-prod-admin.sh) after the stack is healthy.
+Prod Flyway is schema-only; register GPU servers via **Admin → 服务器导入** (CSV). There is **no seeded admin** in prod — create the first admin with [`create-prod-admin.sh`](utils/create-prod-admin.sh) after the stack is healthy.
 
 After `backend` and `postgres` are healthy, from the repo root:
 
@@ -160,6 +160,8 @@ chmod 600 agents-with-psk.csv
 
 Stdout-only (redirect yourself): `./utils/derive-agent-psk-batch.sh servers.csv > agents-with-psk.csv`. Output contains secrets — do not commit.
 
+Upload the same CSV via **Admin → 服务器导入** (`server_id` required; `agent_psk` column is ignored). Use `agent_psk` when deploying agents.
+
 Paste the hex into the agent's `AGENT_PSK` in [`server-agent/deploy/env/common.env`](server-agent/deploy/env/common.env). **Never** deploy `AGENT_MASTER_SECRET` to GPU hosts.
 
 Set `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080` on each agent — see [Agent access & security](#agent-access--security) and [server-agent/README.md](server-agent/README.md).
@@ -206,7 +208,7 @@ gunzip -c backups/gsad_YYYYMMDD_HHMMSS.sql.gz | docker compose exec -T postgres 
 4. Start the prod stack; wait for `backend` health OK.
 5. Run [`create-prod-admin.sh`](utils/create-prod-admin.sh); log in and change the bootstrap password via **Account → Change password** in the sidebar (or `POST /api/auth/change-password`).
 6. Import users via Admin CSV import.
-7. Deploy [server-agent](server-agent/) on each GPU host: register `AGENT_SERVER_ID`, then [derive `AGENT_PSK`](#agent-psk-per-gpu-host).
+7. [Derive agent PSKs](#agent-psk-per-gpu-host) (batch script), **import servers** via Admin → 服务器导入, then deploy [server-agent](server-agent/) on each GPU host.
 8. Enable backup cron or systemd timer; test a restore periodically.
 
 **Security:** do not use placeholder secrets from [`dockers/.env.example`](dockers/.env.example); prod disables Swagger; agent auth uses derived PSK + `X-Agent-Server-Id` over HTTP on the private port.
