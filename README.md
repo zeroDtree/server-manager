@@ -135,6 +135,21 @@ curl -sS -X POST "https://${GSAD_PUBLIC_HOST}/api/auth/login" \
 
 Then import users via **Admin → Import CSV**. Required columns: `email`, `linux_username`, `initial_password` (min 8 chars). Optional: `display_name`, `student_id`, `cohort`, `roles`. Distribute initial passwords out-of-band — they are never returned in the API response. Admins can reset a user's login password from **Admin → Users** (non-admin accounts only).
 
+### Account preparation (spreadsheet → GSAD + NetBird)
+
+Bulk onboarding from a registration spreadsheet (email, linux username, name, student id, cohort) is handled by [`account_prepare/`](account_prepare/). It generates passwords, writes import CSVs under `data/account_prepare/`, and can email unified GSAD + NetBird credentials.
+
+```bash
+cd account_prepare && uv sync
+uv run --project account_prepare prepare-accounts
+uv run --project netbird-manage user-manage import \
+  -f data/account_prepare/netbird_import_delta.csv --resolve-group-names
+# GSAD: Admin → 用户导入 ← data/account_prepare/gsad_users_delta.csv
+uv run --project account_prepare notify-accounts --send --delta
+```
+
+Set `NETBIRD_TOKEN`, `GSAD_PUBLIC_URL`, and `SMTP_*` in repo-root `.env`. See [account_prepare/README.md](account_prepare/README.md).
+
 ### Agent PSK (per GPU host)
 
 Each GPU agent authenticates with a per-server HMAC derived from the backend-only `AGENT_MASTER_SECRET`. Run [`derive-agent-psk.sh`](utils/derive-agent-psk.sh) on a trusted machine with a TTY (your laptop or the central host — **not** on GPU agents). The script prompts for the master secret twice; it is never read from env or argv.
@@ -226,6 +241,8 @@ Git submodules — run `git submodule update --init --recursive` after clone.
 | [gsad-backend](gsad-backend/)   | REST API, Flyway, internal agent routes                                                                            |
 | [gsad-frontend](gsad-frontend/) | Vue UI                                                                                                             |
 | [server-agent](server-agent/)   | account-provisioner + gpu-server-report (systemd on GPU hosts)                                                     |
+| [netbird-manage](netbird-manage/) | NetBird CLI (`user-manage`, `policy-manage`) — submodule                                                         |
+| [account_prepare](account_prepare/) | Registration spreadsheet → GSAD/NetBird CSVs and credential email                                              |
 | [dockers](dockers/)             | Compose files, Dockerfiles, and dev mock agents (`dockers/mocks/`)                                                 |
 | [utils](utils/)                 | Repo-level ops scripts (prod admin bootstrap, agent PSK derivation, server registration, DB backup, systemd units) |
 

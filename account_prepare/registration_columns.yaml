@@ -1,0 +1,7 @@
+# Spreadsheet column headers (as in Excel). Normalized when reading xlsx.
+columns:
+  email: "邮箱"
+  linux_username: "linux账户名"
+  name: "真实姓名"
+  student_id: "学号"
+  cohort: "年级"

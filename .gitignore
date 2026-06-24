@@ -27,6 +27,9 @@ compose.local.yaml
 *.log
 /test/
 
+# Account preparation (passwords, import CSVs)
+/data/account_prepare/
+
 # Database backups (utils/backup-postgres.sh)
 backups/
 /data/
