@@ -100,18 +100,51 @@ def test_mark_completed_and_notify_ready(tmp_path: Path) -> None:
             ]
         )
         assert ledger.list_notify_ready() == []
-        ledger.mark_netbird_completed({"c@example.com"})
+        ledger.mark_netbird_completed({"c@example.com"}, preexisting_emails=set())
         assert ledger.list_notify_ready() == []
-        ledger.mark_gsad_completed({"c@example.com"})
+        ledger.mark_gsad_completed({"c@example.com"}, preexisting_emails=set())
         ready = ledger.list_notify_ready()
         assert len(ready) == 1
         assert ready[0].email == "c@example.com"
+        assert ready[0].gsad_include_password is True
+        assert ready[0].netbird_include_password is True
         ledger.mark_notified("c@example.com")
         assert ledger.list_notify_ready() == []
 
 
+def test_mark_completed_preexisting(tmp_path: Path) -> None:
+    ledger_path = tmp_path / "ledger.sqlite"
+    with Ledger(ledger_path) as ledger:
+        ledger.upsert_from_spreadsheet(
+            [
+                SpreadsheetRow(
+                    email="e@example.com",
+                    display_name="E",
+                    linux_username="euser",
+                    student_id="",
+                    cohort="",
+                )
+            ]
+        )
+        nb = ledger.mark_netbird_completed(
+            {"e@example.com"}, preexisting_emails={"e@example.com"}
+        )
+        gsad = ledger.mark_gsad_completed({"e@example.com"}, preexisting_emails=set())
+        row = ledger.list_all()[0]
+
+    assert nb.marked == 1
+    assert nb.preexisting == 1
+    assert gsad.marked == 1
+    assert gsad.preexisting == 0
+    assert row.netbird_include_password is False
+    assert row.gsad_include_password is True
+
+
 def test_reconcile_marks_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+
     from account_prepare import reconcile as reconcile_mod
+    from account_prepare.snapshot import pre_import_snapshot_path
 
     ledger_path = tmp_path / "ledger.sqlite"
     data_dir = tmp_path / "data"
@@ -129,6 +162,17 @@ def test_reconcile_marks_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
                 )
             ]
         )
+
+    pre_import_snapshot_path(data_dir).write_text(
+        json.dumps(
+            {
+                "captured_at": "2026-06-24T12:00:00Z",
+                "netbird_emails": ["d@example.com"],
+                "gsad_emails": [],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     monkeypatch.setattr(
         reconcile_mod,
@@ -154,6 +198,8 @@ def test_reconcile_marks_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         row = ledger.list_all()[0]
         assert row.netbird_status == STATUS_COMPLETED
         assert row.gsad_status == STATUS_COMPLETED
+        assert row.netbird_include_password is False
+        assert row.gsad_include_password is True
         assert row.netbird_completed_at
         assert row.gsad_completed_at
 

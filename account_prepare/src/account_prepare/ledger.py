@@ -22,8 +22,10 @@ CREATE TABLE IF NOT EXISTS registration (
     netbird_password TEXT NOT NULL,
     netbird_status TEXT NOT NULL DEFAULT 'pending',
     netbird_completed_at TEXT,
+    netbird_include_password INTEGER NOT NULL DEFAULT 1,
     gsad_status TEXT NOT NULL DEFAULT 'pending',
     gsad_completed_at TEXT,
+    gsad_include_password INTEGER NOT NULL DEFAULT 1,
     notified_at TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -42,8 +44,10 @@ class RegistrationRow:
     netbird_password: str
     netbird_status: str
     netbird_completed_at: str | None
+    netbird_include_password: bool
     gsad_status: str
     gsad_completed_at: str | None
+    gsad_include_password: bool
     notified_at: str | None
     created_at: str
     updated_at: str
@@ -62,6 +66,12 @@ class SpreadsheetRow:
 class UpsertResult:
     inserted: int
     updated: int
+
+
+@dataclass(frozen=True)
+class MarkCompletedResult:
+    marked: int
+    preexisting: int
 
 
 def utc_now_iso() -> str:
@@ -154,6 +164,17 @@ class Ledger:
     def list_netbird_pending(self) -> list[RegistrationRow]:
         return self._list_by_status("netbird_status", STATUS_PENDING)
 
+    def has_pending(self) -> bool:
+        cur = self._conn.execute(
+            """
+            SELECT 1 FROM registration
+            WHERE gsad_status = ? OR netbird_status = ?
+            LIMIT 1
+            """,
+            (STATUS_PENDING, STATUS_PENDING),
+        )
+        return cur.fetchone() is not None
+
     def list_notify_ready(self) -> list[RegistrationRow]:
         cur = self._conn.execute(
             """
@@ -165,11 +186,27 @@ class Ledger:
         )
         return [self._row_to_registration(r) for r in cur.fetchall()]
 
-    def mark_netbird_completed(self, emails: set[str]) -> int:
-        return self._mark_completed("netbird_status", "netbird_completed_at", emails)
+    def mark_netbird_completed(
+        self, emails: set[str], *, preexisting_emails: set[str]
+    ) -> MarkCompletedResult:
+        return self._mark_completed(
+            "netbird_status",
+            "netbird_completed_at",
+            "netbird_include_password",
+            emails,
+            preexisting_emails,
+        )
 
-    def mark_gsad_completed(self, emails: set[str]) -> int:
-        return self._mark_completed("gsad_status", "gsad_completed_at", emails)
+    def mark_gsad_completed(
+        self, emails: set[str], *, preexisting_emails: set[str]
+    ) -> MarkCompletedResult:
+        return self._mark_completed(
+            "gsad_status",
+            "gsad_completed_at",
+            "gsad_include_password",
+            emails,
+            preexisting_emails,
+        )
 
     def mark_notified(self, email: str) -> None:
         now = utc_now_iso()
@@ -193,25 +230,40 @@ class Ledger:
         )
         return [self._row_to_registration(r) for r in cur.fetchall()]
 
-    def _mark_completed(self, status_col: str, at_col: str, emails: set[str]) -> int:
+    def _mark_completed(
+        self,
+        status_col: str,
+        at_col: str,
+        include_col: str,
+        emails: set[str],
+        preexisting_emails: set[str],
+    ) -> MarkCompletedResult:
         if not emails:
-            return 0
+            return MarkCompletedResult(marked=0, preexisting=0)
+        preexisting_lower = {e.lower() for e in preexisting_emails}
         now = utc_now_iso()
-        count = 0
+        marked = 0
+        preexisting = 0
         for email in emails:
+            el = email.lower()
+            include_password = 0 if el in preexisting_lower else 1
             cur = self._conn.execute(
                 f"""
                 UPDATE registration SET
                     {status_col} = ?,
                     {at_col} = ?,
+                    {include_col} = ?,
                     updated_at = ?
                 WHERE email = ? AND {status_col} != ?
                 """,
-                (STATUS_COMPLETED, now, now, email.lower(), STATUS_COMPLETED),
+                (STATUS_COMPLETED, now, include_password, now, el, STATUS_COMPLETED),
             )
-            count += cur.rowcount
+            if cur.rowcount:
+                marked += 1
+                if not include_password:
+                    preexisting += 1
         self._conn.commit()
-        return count
+        return MarkCompletedResult(marked=marked, preexisting=preexisting)
 
     def _get_row(self, email: str) -> RegistrationRow | None:
         cur = self._conn.execute(
@@ -233,8 +285,10 @@ class Ledger:
             netbird_password=str(row["netbird_password"]),
             netbird_status=str(row["netbird_status"]),
             netbird_completed_at=row["netbird_completed_at"],
+            netbird_include_password=bool(row["netbird_include_password"]),
             gsad_status=str(row["gsad_status"]),
             gsad_completed_at=row["gsad_completed_at"],
+            gsad_include_password=bool(row["gsad_include_password"]),
             notified_at=row["notified_at"],
             created_at=str(row["created_at"]),
             updated_at=str(row["updated_at"]),

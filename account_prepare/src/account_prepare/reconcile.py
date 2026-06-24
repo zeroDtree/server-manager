@@ -14,6 +14,7 @@ from account_prepare.export import export_email_snapshot
 from account_prepare.gsad_db import GsadDbError, fetch_gsad_emails
 from account_prepare.ledger import STATUS_COMPLETED, Ledger
 from account_prepare.paths import DEFAULT_DATA_DIR, DEFAULT_LEDGER, REPO_ROOT
+from account_prepare.snapshot import PreImportSnapshotError, load_pre_import_snapshot, pre_import_snapshot_path
 
 
 def fetch_netbird_emails(base_url: str, token: str) -> set[str]:
@@ -49,9 +50,25 @@ def run_reconcile(
         print(f"Failed to fetch GSAD users: {e}", file=sys.stderr)
         return 6
 
+    snapshot_path = pre_import_snapshot_path(data_dir)
+    pre_netbird: set[str] = set()
+    pre_gsad: set[str] = set()
+
     with Ledger(ledger_path) as ledger:
-        nb_marked = ledger.mark_netbird_completed(netbird_emails)
-        gsad_marked = ledger.mark_gsad_completed(gsad_emails)
+        needs_snapshot = ledger.has_pending()
+        if needs_snapshot:
+            try:
+                pre_netbird, pre_gsad = load_pre_import_snapshot(snapshot_path)
+            except PreImportSnapshotError as e:
+                print(str(e), file=sys.stderr)
+                return 7
+
+        nb_result = ledger.mark_netbird_completed(
+            netbird_emails, preexisting_emails=pre_netbird
+        )
+        gsad_result = ledger.mark_gsad_completed(
+            gsad_emails, preexisting_emails=pre_gsad
+        )
 
         nb_completed = ledger.emails_by_status("netbird_status", STATUS_COMPLETED)
         gsad_completed = ledger.emails_by_status("gsad_status", STATUS_COMPLETED)
@@ -72,7 +89,8 @@ def run_reconcile(
         export_email_snapshot(data_dir / "gsad_registered_emails.csv", gsad_emails)
 
     print(
-        f"reconcile: netbird marked={nb_marked} gsad marked={gsad_marked} "
+        f"reconcile: netbird marked={nb_result.marked} gsad marked={gsad_result.marked} "
+        f"netbird_preexisting={nb_result.preexisting} gsad_preexisting={gsad_result.preexisting} "
         f"(NetBird={len(netbird_emails)} GSAD={len(gsad_emails)} in remote)"
     )
     return 0

@@ -23,7 +23,7 @@ def load_dotenv_repo_root() -> None:
     load_dotenv(REPO_ROOT / ".env")
 
 
-def ledger_row_to_notify(row) -> dict[str, str]:
+def ledger_row_to_notify(row) -> dict:
     return {
         "email": row.email,
         "display_name": row.display_name,
@@ -32,6 +32,8 @@ def ledger_row_to_notify(row) -> dict[str, str]:
         "cohort": row.cohort,
         "gsad_password": row.gsad_password,
         "netbird_password": row.netbird_password,
+        "gsad_include_password": row.gsad_include_password,
+        "netbird_include_password": row.netbird_include_password,
     }
 
 

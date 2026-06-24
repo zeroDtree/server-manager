@@ -37,8 +37,8 @@ def test_export_delta_pending_only(tmp_path: Path) -> None:
                 ),
             ]
         )
-        ledger.mark_gsad_completed({"done@example.com"})
-        ledger.mark_netbird_completed({"done@example.com"})
+        ledger.mark_gsad_completed({"done@example.com"}, preexisting_emails=set())
+        ledger.mark_netbird_completed({"done@example.com"}, preexisting_emails=set())
 
         all_rows = ledger.list_all()
         gsad_pending = ledger.list_gsad_pending()
@@ -82,8 +82,8 @@ def test_export_removes_delta_when_empty(tmp_path: Path) -> None:
                 )
             ]
         )
-        ledger.mark_gsad_completed({"x@example.com"})
-        ledger.mark_netbird_completed({"x@example.com"})
+        ledger.mark_gsad_completed({"x@example.com"}, preexisting_emails=set())
+        ledger.mark_netbird_completed({"x@example.com"}, preexisting_emails=set())
         all_rows = ledger.list_all()
 
     export_csvs(

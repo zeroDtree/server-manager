@@ -7,7 +7,8 @@ Convert a registration spreadsheet into GSAD and NetBird import CSVs, then email
 ## Prerequisites
 
 - Repo root `.env`: `GSAD_PUBLIC_URL` (full GSAD login URL, e.g. `https://gsad.example.com/`)
-- For reconcile: `NETBIRD_TOKEN`, `NETBIRD_API_BASE` (if self-hosted)
+- For prepare (when delta pending) and reconcile: `NETBIRD_TOKEN`, `NETBIRD_API_BASE` (if self-hosted)
+- GSAD Postgres reachable via `docker compose` (for pre-import snapshot and reconcile)
 - For email: `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, … (see below)
 - NetBird group **`client_group`** must exist before import
 - Spreadsheet at `data/account_prepare/registration.xlsx` (or pass `--input`)
@@ -32,13 +33,15 @@ Passwords are **generated once on first ledger insert**: separate GSAD and NetBi
 
 ## Workflow
 
+Run steps **in order**. When there are pending users, `prepare-accounts` writes `pre_import_snapshot.json` (remote emails **before** import). `reconcile-accounts` uses it to decide whether each system’s password belongs in the notification email.
+
 From **repo root**:
 
 ```bash
-# 1. Spreadsheet → ledger + CSVs (delta = pending status in ledger)
+# 1. Spreadsheet → ledger + CSVs + pre-import snapshot (when delta pending)
 uv run --project account_prepare prepare-accounts
 
-# 2. Create NetBird accounts (delta only)
+# 2. Create NetBird accounts (delta only; existing emails are skipped)
 uv run --project netbird-manage user-manage import \
   -f data/account_prepare/netbird_import_delta.csv \
   --resolve-group-names
@@ -51,6 +54,8 @@ uv run --project account_prepare reconcile-accounts
 # 5. Email users who are completed in both systems and not yet notified
 uv run --project account_prepare notify-accounts --send
 ```
+
+If an email already existed in NetBird or GSAD before import, the notification **omits that system’s password** and tells the user to keep using their existing password.
 
 Optional: run reconcile at the end of prepare:
 
@@ -70,7 +75,8 @@ uv run --project account_prepare notify-accounts --send --dry-run
 
 | File | Purpose |
 |------|---------|
-| `registration_ledger.sqlite` | Source of truth (passwords, status, notified_at) |
+| `registration_ledger.sqlite` | Source of truth (passwords, status, include_password flags, notified_at) |
+| `pre_import_snapshot.json` | NetBird/GSAD emails captured before import (prepare, when pending) |
 | `gsad_users.csv` | Full GSAD Admin user import |
 | `gsad_users_delta.csv` | Rows with `gsad_status = pending` |
 | `netbird_import.csv` | Full `user-manage import` |
@@ -84,15 +90,15 @@ uv run --project account_prepare notify-accounts --send --dry-run
 
 | Command | Role |
 |---------|------|
-| `prepare-accounts` | Upsert ledger from spreadsheet; export CSVs |
-| `reconcile-accounts` | Sync `*_status` from NetBird API + GSAD Postgres |
+| `prepare-accounts` | Upsert ledger from spreadsheet; export CSVs; capture pre-import snapshot when pending |
+| `reconcile-accounts` | Sync `*_status` and `*_include_password` from snapshot + remote |
 | `notify-accounts` | Email completed users; set `notified_at` after send |
 
 ## Environment (repo-root `.env`)
 
 | Variable | Required for |
 |----------|----------------|
-| `NETBIRD_TOKEN` | `reconcile-accounts`, `prepare-accounts --reconcile` |
+| `NETBIRD_TOKEN` | `prepare-accounts` (when pending), `reconcile-accounts`, `prepare-accounts --reconcile` |
 | `NETBIRD_API_BASE` | Self-hosted NetBird (default: `https://api.netbird.io`) |
 | `GSAD_PUBLIC_URL` | `notify-accounts` |
 | `NETBIRD_DASHBOARD_URL` | Optional NetBird hint in email |

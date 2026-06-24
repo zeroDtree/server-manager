@@ -15,6 +15,7 @@ from account_prepare.paths import (
     DEFAULT_INPUT,
     DEFAULT_LEDGER,
     DEFAULT_MAPPING,
+    REPO_ROOT,
 )
 from account_prepare.reconcile import run_reconcile
 
@@ -124,6 +125,27 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"Delta: gsad={len(gsad_pending)} netbird={len(netbird_pending)} pending"
     )
+
+    if gsad_pending or netbird_pending:
+        import os
+
+        from netbird_manage.utils.cli import DEFAULT_API_BASE
+
+        from account_prepare.snapshot import PreImportSnapshotError, capture_pre_import_snapshot
+
+        base_url = os.environ.get("NETBIRD_API_BASE", DEFAULT_API_BASE)
+        token = os.environ.get("NETBIRD_TOKEN", "")
+        try:
+            snap_path = capture_pre_import_snapshot(
+                args.data_dir,
+                base_url=base_url,
+                token=token,
+                repo_root=REPO_ROOT,
+            )
+        except PreImportSnapshotError as e:
+            print(f"Pre-import snapshot error: {e}", file=sys.stderr)
+            return 4
+        print(f"Wrote pre-import snapshot: {snap_path}")
 
     if args.reconcile:
         import os

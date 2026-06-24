@@ -18,55 +18,115 @@ DEFAULT_ERROR_LOG = Path("data/account_prepare/notify_send_errors.jsonl")
 
 SUBJECT = "实验室账号已开通 — GSAD 与 NetBird 登录说明"
 
-BODY_TEMPLATE = """{display_name}，你好：
-
-你的实验室账号已开通，请使用以下信息登录。
-
-一、GSAD（GPU 资源申请与 SSH 凭据）
-  登录地址：{gsad_url}
-  登录邮箱：{email}
-  登录密码：{gsad_password}
-  Linux 用户名：{linux_username}
-  （申请 GPU 后 SSH 使用该 Linux 用户名；SSH 密码可在 GSAD「新建申请」中自选或留空由系统生成。）
-
-二、NetBird（VPN 组网）
-  登录邮箱：{email}
-  登录密码：{netbird_password}
-{netbird_hint}
-说明：
-1. GSAD 与 NetBird 密码不同，请分别妥善保管，不要转发本邮件。
-2. 建议首次登录后在 GSAD「修改密码」及 NetBird 客户端中修改为你自己的密码。
-
-如有问题请联系管理员。
-
-此邮件由系统自动发送，请不要直接回复。
-"""
+GSAD_PREEXISTING_NOTE = (
+    "  说明：该邮箱此前已在 GSAD 注册，导入已跳过。"
+    "请继续使用你原有的登录密码；如遗忘请联系管理员重置。"
+)
+NETBIRD_PREEXISTING_NOTE = (
+    "  说明：该邮箱此前已在 NetBird 注册，导入已跳过。请继续使用你原有的登录密码。"
+)
 
 
 def _env(name: str) -> str:
     return os.environ.get(name, "").strip()
 
 
-def netbird_hint_line(dashboard_url: str) -> str:
+def netbird_hint_line(dashboard_url: str, *, include_password: bool) -> str:
     if dashboard_url:
         return f"  管理后台：{dashboard_url}\n"
-    return "  请使用 NetBird 客户端，使用上述邮箱和密码登录。\n"
+    if include_password:
+        return "  请使用 NetBird 客户端，使用上述邮箱和密码登录。\n"
+    return "  请使用 NetBird 客户端，使用上述邮箱和你原有的密码登录。\n"
+
+
+def _footer_notes(*, include_gsad_password: bool, include_netbird_password: bool) -> str:
+    if include_gsad_password and include_netbird_password:
+        return (
+            "1. GSAD 与 NetBird 密码不同，请分别妥善保管，不要转发本邮件。\n"
+            "2. 建议首次登录后在 GSAD「修改密码」及 NetBird 客户端中修改为你自己的密码。"
+        )
+    if include_gsad_password or include_netbird_password:
+        return (
+            "1. 请妥善保管本邮件中的密码，不要转发本邮件。\n"
+            "2. 另一系统请使用你原有的登录密码；建议首次登录后修改为你自己的密码。"
+        )
+    return "1. 请使用你在 GSAD 与 NetBird 的原有登录信息；如有问题请联系管理员。"
+
+
+def _gsad_section(
+    row: dict[str, Any],
+    *,
+    gsad_url: str,
+    include_password: bool,
+) -> str:
+    lines = [
+        "一、GSAD（GPU 资源申请与 SSH 凭据）",
+        f"  登录地址：{gsad_url}",
+        f"  登录邮箱：{row['email']}",
+    ]
+    if include_password:
+        lines.extend(
+            [
+                f"  登录密码：{row['gsad_password']}",
+                f"  Linux 用户名：{row['linux_username']}",
+                "  （申请 GPU 后 SSH 使用该 Linux 用户名；SSH 密码可在 GSAD「新建申请」中自选或留空由系统生成。）",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                f"  Linux 用户名：{row['linux_username']}",
+                GSAD_PREEXISTING_NOTE,
+            ]
+        )
+    return "\n".join(lines)
+
+
+def _netbird_section(
+    row: dict[str, Any],
+    *,
+    netbird_dashboard_url: str,
+    include_password: bool,
+) -> str:
+    lines = [
+        "二、NetBird（VPN 组网）",
+        f"  登录邮箱：{row['email']}",
+    ]
+    if include_password:
+        lines.append(f"  登录密码：{row['netbird_password']}")
+    else:
+        lines.append(NETBIRD_PREEXISTING_NOTE)
+    lines.append(netbird_hint_line(netbird_dashboard_url, include_password=include_password).rstrip())
+    return "\n".join(lines)
 
 
 def build_message(
-    row: dict[str, str],
+    row: dict[str, Any],
     *,
     gsad_url: str,
     netbird_dashboard_url: str,
 ) -> tuple[str, str]:
-    body = BODY_TEMPLATE.format(
-        display_name=row["display_name"],
-        gsad_url=gsad_url,
-        email=row["email"],
-        gsad_password=row["gsad_password"],
-        netbird_password=row["netbird_password"],
-        linux_username=row["linux_username"],
-        netbird_hint=netbird_hint_line(netbird_dashboard_url),
+    include_gsad = bool(row.get("gsad_include_password", True))
+    include_netbird = bool(row.get("netbird_include_password", True))
+
+    body = "\n\n".join(
+        [
+            f"{row['display_name']}，你好：",
+            "你的实验室账号已开通，请使用以下信息登录。",
+            _gsad_section(row, gsad_url=gsad_url, include_password=include_gsad),
+            _netbird_section(
+                row,
+                netbird_dashboard_url=netbird_dashboard_url,
+                include_password=include_netbird,
+            ),
+            "说明：\n"
+            + _footer_notes(
+                include_gsad_password=include_gsad,
+                include_netbird_password=include_netbird,
+            ),
+            "如有问题请联系管理员。",
+            "此邮件由系统自动发送，请不要直接回复。",
+        ]
     )
     return SUBJECT, body
 
@@ -76,7 +136,7 @@ def safe_filename(email: str) -> str:
 
 
 def print_notices(
-    rows: list[dict[str, str]],
+    rows: list[dict[str, Any]],
     *,
     gsad_url: str,
     netbird_dashboard_url: str,
@@ -95,7 +155,7 @@ def print_notices(
 
 
 def write_notice_files(
-    rows: list[dict[str, str]],
+    rows: list[dict[str, Any]],
     out_dir: Path,
     *,
     gsad_url: str,
@@ -222,7 +282,7 @@ def send_delay_seconds(cli_delay: float | None) -> float:
 
 
 def send_notices(
-    rows: list[dict[str, str]],
+    rows: list[dict[str, Any]],
     *,
     gsad_url: str,
     netbird_dashboard_url: str,
@@ -230,7 +290,7 @@ def send_notices(
     dry_run: bool,
     delay_seconds: float,
     error_log: Path,
-    on_sent: Callable[[dict[str, str]], None] | None = None,
+    on_sent: Callable[[dict[str, Any]], None] | None = None,
 ) -> tuple[int, int]:
     if dry_run:
         for row in rows:
