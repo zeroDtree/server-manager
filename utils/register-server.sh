@@ -1,21 +1,44 @@
 #!/usr/bin/env bash
-#
-# Register a GPU server in production (required before agents can report metrics).
+
+# @help-begin
+# Register a GPU server in t_server (required before agents can report metrics).
 # Run from the repo root when postgres is healthy.
 #
-# Environment:
-#   SERVER_ID          (required) e.g. gpu-01
-#   RESOURCE_LEVEL     (required) e.g. H100
-#   SSH_HOST           (optional) management IP/hostname
-#   COMPOSE_FILE       Optional docker compose file override
+# Usage:
+#   ./register-server.sh
 #
-set -euo pipefail
+# Env: SERVER_ID — server id, e.g. gpu-01 (required)
+# Env: RESOURCE_LEVEL — GPU tier label, e.g. H100 (required)
+# Env: SSH_HOST — optional management IP or hostname
+# Env: COMPOSE_FILE — optional docker compose file override
+# Env: SPRING_PROFILES_ACTIVE — selects compose files when COMPOSE_FILE is unset
+# @help-end
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# @help-options-begin
+#   -h, --help              show help
+# @help-options-end
+
+set -euo pipefail
 
 log() { printf 'register-server: %s\n' "$*"; }
 die() { printf 'register-server: ERROR: %s\n' "$*" >&2; exit 1; }
+
+usage() {
+  awk '/^# @help-begin$/{f=1; next} /^# @help-end$/{f=0} f' "$0"
+  printf '%s\n' '#' 'Options:' '#'
+  awk '/^# @help-options-begin$/{f=1; next} /^# @help-options-end$/{f=0} f' "$0"
+  exit 0
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help) usage ;;
+    *) die "Unexpected argument: $arg (see --help)" ;;
+  esac
+done
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 escape_sql_literal() {
   local s="$1"
@@ -41,8 +64,12 @@ compose_cmd() {
 
 cd "$REPO_ROOT"
 
-: "${SERVER_ID:?Set SERVER_ID (e.g. gpu-01)}"
-: "${RESOURCE_LEVEL:?Set RESOURCE_LEVEL (e.g. H100)}"
+if [[ -z "${SERVER_ID:-}" ]]; then
+  die "SERVER_ID is required (see --help)"
+fi
+if [[ -z "${RESOURCE_LEVEL:-}" ]]; then
+  die "RESOURCE_LEVEL is required (see --help)"
+fi
 
 if ! compose_cmd ps --status running postgres 2>/dev/null | grep -q postgres; then
   die "postgres container is not running; start the stack first"

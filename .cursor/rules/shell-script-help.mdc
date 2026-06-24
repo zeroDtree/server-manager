@@ -1,0 +1,94 @@
+---
+description: Shell script help text and usage() conventions
+globs: **/*.sh
+alwaysApply: false
+---
+
+# Shell Script Help
+
+Every bash script with CLI options or required arguments must follow this help format.
+
+## Architecture: split blocks, dual assembly
+
+Two parallel blocks (siblings, never nested), placed after the shebang and before `set -euo pipefail`:
+
+| Block | Purpose |
+|-------|---------|
+| `@help-begin` / `@help-end` | Summary, Usage, Env, defaults — **no option lines** |
+| `@help-options-begin` / `@help-options-end` | **All** option descriptions (single source of truth) |
+
+- Options exist in exactly one place — edit once, no sync drift between standalone and wrapper views.
+- **Standalone** (`./script.sh -h`): script assembles its own `@help-begin` + `Options:` + `@help-options-begin`.
+- **As child**: parent reads only `@help-options-begin` — no Usage/Env leakage.
+
+Scripts that accept flags must include `@help-options-begin`. If a script may later be invoked by a wrapper, include both blocks from the start.
+
+```bash
+#!/usr/bin/env bash
+
+# @help-begin
+# Configure the current node environment.
+#
+# Usage:
+#   ./current-script.sh [options]
+#
+# Env: DATA_ROOT — absolute data root. Example:
+#   DATA_ROOT=/mnt/data ./current-script.sh
+#
+# If no options are passed, the default behavior is equivalent to:
+#   ./current-script.sh --mode production
+# @help-end
+
+# @help-options-begin
+#   --mode MODE             run mode (production/development)
+#   -h, --help              show help
+# @help-options-end
+
+set -euo pipefail
+
+usage() {
+  awk '/^# @help-begin$/{f=1; next} /^# @help-end$/{f=0} f' "$0"
+  printf '%s\n' '#' 'Options:' '#'
+  awk '/^# @help-options-begin$/{f=1; next} /^# @help-options-end$/{f=0} f' "$0"
+  exit 0
+}
+
+[[ $# -ge 1 ]] || usage
+case "${1:-}" in
+  -h|--help) usage ;;
+esac
+```
+
+## Help block rules (`@help-begin`)
+
+- Keep every help line a `#` comment; blank lines use `#` alone.
+- Include `Usage:`, relevant `Env:` vars, and default-behavior notes.
+- **Do not** list options here — they belong in `@help-options-begin`.
+
+## Options block rules (`@help-options-begin`)
+
+- List every flag the script accepts, including `-h, --help`.
+- Align descriptions in a single column after the flag names.
+- Note defaults when non-obvious.
+
+## Wrapper scripts (parent)
+
+Guard child-script paths before `awk` — a missing file should not break `--help` with a raw awk error:
+
+```bash
+usage() {
+  awk '/^# @help-begin$/{f=1; next} /^# @help-end$/{f=0} f' "$0"
+  printf '%s\n' '#' 'Options:' '#'
+  awk '/^# @help-options-begin$/{f=1; next} /^# @help-options-end$/{f=0} f' "$0"
+  printf '%s\n' '#' '# Options forwarded to child-script.sh:' '#'
+  if [[ -f "${CHILD_SCRIPT:-}" ]]; then
+    awk '/^# @help-options-begin$/{f=1; next} /^# @help-options-end$/{f=0} f' "${CHILD_SCRIPT}"
+  else
+    echo "#   [error: cannot load child script options — file not found]"
+  fi
+  exit 0
+}
+```
+
+- Implement `-h` / `--help` by calling `usage()` (also when required args are missing).
+- Write help text in English.

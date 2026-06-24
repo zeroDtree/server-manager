@@ -1,17 +1,40 @@
 #!/usr/bin/env bash
-#
-# Backup gsad PostgreSQL: dump, gzip, verify, retention + total size cap.
+
+# @help-begin
+# Backup gsad PostgreSQL: pg_dump, gzip, verify, retention and total size cap.
 # Run from the repo root (or via cron/systemd with WorkingDirectory set).
-#
-# Environment:
-#   BACKUP_DIR         Output directory (default: <repo>/backups)
-#   RETENTION_DAYS     Delete backups older than N days (default: 30)
-#   MAX_TOTAL_MB       Max total backup dir size in MB (default: 500)
-#   COMPOSE_FILE       Optional docker compose file override
-#
 # Requires GNU find (-printf) for size-based pruning; typical prod hosts are Linux.
 #
+# Usage:
+#   ./backup-postgres.sh
+#
+# Env: BACKUP_DIR — output directory (default: <repo>/backups)
+# Env: RETENTION_DAYS — delete backups older than N days (default: 30)
+# Env: MAX_TOTAL_MB — max total backup dir size in MB (default: 500)
+# Env: COMPOSE_FILE — optional docker compose file override
+# Env: SPRING_PROFILES_ACTIVE — selects compose files when COMPOSE_FILE is unset
+# Env: DB_PASSWORD — from repo root .env (required)
+# @help-end
+
+# @help-options-begin
+#   -h, --help              show help
+# @help-options-end
+
 set -euo pipefail
+
+usage() {
+  awk '/^# @help-begin$/{f=1; next} /^# @help-end$/{f=0} f' "$0"
+  printf '%s\n' '#' 'Options:' '#'
+  awk '/^# @help-options-begin$/{f=1; next} /^# @help-options-end$/{f=0} f' "$0"
+  exit 0
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help) usage ;;
+    *) printf 'backup-postgres: ERROR: Unexpected argument: %s (see --help)\n' "$arg" >&2; exit 1 ;;
+  esac
+done
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="${BACKUP_DIR:-$REPO_ROOT/backups}"
@@ -44,7 +67,10 @@ if [[ -f .env ]]; then
   set +a
 fi
 
-: "${DB_PASSWORD:?Set DB_PASSWORD in .env}"
+if [[ -z "${DB_PASSWORD:-}" ]]; then
+  printf 'backup-postgres: ERROR: DB_PASSWORD is required in .env (see --help)\n' >&2
+  exit 1
+fi
 
 mkdir -p "$OUT_DIR"
 OUT_FILE="$OUT_DIR/gsad_$(date +%Y%m%d_%H%M%S).sql.gz"

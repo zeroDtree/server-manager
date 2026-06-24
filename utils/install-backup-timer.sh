@@ -1,11 +1,32 @@
 #!/usr/bin/env bash
-#
+
+# @help-begin
 # Install gsad-backup-postgres systemd timer (substitutes @REPO_ROOT@ from this clone).
+# Requires root.
 #
-# Example:
-#   sudo ./utils/install-backup-timer.sh
-#
+# Usage:
+#   sudo ./install-backup-timer.sh
+# @help-end
+
+# @help-options-begin
+#   -h, --help              show help
+# @help-options-end
+
 set -euo pipefail
+
+usage() {
+  awk '/^# @help-begin$/{f=1; next} /^# @help-end$/{f=0} f' "$0"
+  printf '%s\n' '#' 'Options:' '#'
+  awk '/^# @help-options-begin$/{f=1; next} /^# @help-options-end$/{f=0} f' "$0"
+  exit 0
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help) usage ;;
+    *) printf 'ERROR: Unexpected argument: %s (see --help)\n' "$arg" >&2; exit 1 ;;
+  esac
+done
 
 SERVICE="gsad-backup-postgres.service"
 TIMER="gsad-backup-postgres.timer"

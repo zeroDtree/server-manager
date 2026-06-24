@@ -2,21 +2,32 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
 import time
 
 import requests
 
 UPSTREAM_API_URL = os.environ.get("UPSTREAM_API_URL", "http://backend:8080").rstrip("/")
-AGENT_PSK = os.environ.get("AGENT_PSK", "change-me-in-production")
+AGENT_MASTER_SECRET = os.environ.get("AGENT_MASTER_SECRET", "change-me-in-production")
 POLL_INTERVAL = max(5, int(os.environ.get("PROVISION_POLL_INTERVAL", "10")))
 MOCK_SERVER_COUNT = max(1, int(os.environ.get("MOCK_SERVER_COUNT", "100")))
 
 
-def headers() -> dict[str, str]:
+def derive_psk(server_id: str) -> str:
+    return hmac.new(
+        AGENT_MASTER_SECRET.encode("utf-8"),
+        server_id.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def headers(server_id: str) -> dict[str, str]:
     return {
         "Content-Type": "application/json",
-        "X-Agent-PSK": AGENT_PSK,
+        "X-Agent-Server-Id": server_id,
+        "X-Agent-PSK": derive_psk(server_id),
     }
 
 
@@ -35,7 +46,7 @@ def server_ip_for(server_id: str) -> str:
 
 def post_pending(server_id: str) -> dict | None:
     url = f"{UPSTREAM_API_URL}/api/internal/servers/provision/pending"
-    resp = requests.post(url, json={"serverId": server_id}, headers=headers(), timeout=30)
+    resp = requests.post(url, json={"serverId": server_id}, headers=headers(server_id), timeout=30)
     resp.raise_for_status()
     payload = resp.json()
     return payload.get("data")
@@ -50,7 +61,7 @@ def complete_provision(task: dict, server_id: str) -> None:
         "serverIp": server_ip_for(task["serverId"]),
         "errorMessage": None,
     }
-    resp = requests.post(url, json=body, headers=headers(), timeout=30)
+    resp = requests.post(url, json=body, headers=headers(server_id), timeout=30)
     resp.raise_for_status()
 
 
@@ -62,7 +73,7 @@ def complete_revoke(task: dict, server_id: str) -> None:
         "success": True,
         "errorMessage": None,
     }
-    resp = requests.post(url, json=body, headers=headers(), timeout=30)
+    resp = requests.post(url, json=body, headers=headers(server_id), timeout=30)
     resp.raise_for_status()
 
 

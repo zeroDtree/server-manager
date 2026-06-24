@@ -108,20 +108,21 @@ Traefik terminates HTTPS (Let's Encrypt). Agent access uses a separate HTTP port
 | Path            | Audience                         | Protocol            | Routes                            |
 | --------------- | -------------------------------- | ------------------- | --------------------------------- |
 | Users / browser | HTTPS `:443` via Traefik         | `/`, `/api/*` (JWT) |
-| GPU agents      | Direct host `BACKEND_AGENT_PORT` | HTTP                | `/api/internal/*` (`X-Agent-PSK`) |
+| GPU agents      | Direct host `BACKEND_AGENT_PORT` | HTTP                | `/api/internal/*` (`X-Agent-Server-Id`, `X-Agent-PSK`) |
 
 **Why HTTP, not the public HTTPS URL?**
 
 - Traefik blocks `/api/internal/*` on `:443` (by design).
 - Agents use the central host's private/VPN IP (e.g. NetBird), not `https://${GSAD_PUBLIC_HOST}`.
-- Avoids per-host TLS cert management; auth is via shared `AGENT_PSK`.
+- Avoids per-host TLS cert management; auth is per-server HMAC derived from `AGENT_MASTER_SECRET`.
 
 **Network requirements (required in prod)**
 
 - Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts only — NetBird mesh CIDR, private LAN, or firewall allowlist.
-- Set `BACKEND_AGENT_BIND` to the central host's private/VPN IP (not `0.0.0.0` on internet-facing servers).
-- Do not expose `:8080` to the public internet (HTTP carries `X-Agent-PSK` in cleartext).
-- Use a long random `AGENT_PSK`; prod startup rejects the default value.
+- Set `BACKEND_AGENT_BIND` to the central host's private/VPN IP (prod rejects `0.0.0.0`).
+- Do not expose `:8080` to the public internet (HTTP carries agent credentials in cleartext).
+- Use a long random `AGENT_MASTER_SECRET` on the **backend only**; prod startup rejects the default value.
+- Per GPU host: run `./gsad-backend/deploy/scripts/derive-agent-psk.sh <AGENT_SERVER_ID>` (interactive prompt for master secret); paste the derived hex into agent `AGENT_PSK`. **Never** put `AGENT_MASTER_SECRET` on GPU hosts.
 
 **Agent config:** `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080` — see [server-agent/README.md](server-agent/README.md).
 
@@ -235,16 +236,16 @@ gunzip -c backups/gsad_YYYYMMDD_HHMMSS.sql.gz | docker compose exec -T postgres 
 
 ### Production checklist & best practices
 
-1. Generate strong random `JWT_SECRET` (≥32 chars), `AGENT_PSK`, `DB_PASSWORD`, `REDIS_PASSWORD`.
+1. Generate strong random `JWT_SECRET` (≥32 chars), `AGENT_MASTER_SECRET`, `DB_PASSWORD`, `REDIS_PASSWORD`.
 2. Point DNS for `GSAD_PUBLIC_HOST` at the host; open ports 80 and 443.
 3. Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts / VPN CIDR only — never expose it on the public internet.
 4. Start the prod stack; wait for `backend` health OK.
 5. Run [`create-prod-admin.sh`](gsad-backend/deploy/scripts/create-prod-admin.sh); log in and change the bootstrap password.
 6. Import users via Admin CSV import.
-7. Deploy [server-agent](server-agent/) on each GPU host with a unique `AGENT_SERVER_ID`.
+7. Deploy [server-agent](server-agent/) on each GPU host: register `AGENT_SERVER_ID`, derive `AGENT_PSK` via [`derive-agent-psk.sh`](gsad-backend/deploy/scripts/derive-agent-psk.sh) (interactive; master secret typed at prompt, not stored on agent).
 8. Enable backup cron or systemd timer; test a restore periodically.
 
-**Security:** do not use placeholder secrets from [`dockers/.env.example`](dockers/.env.example); prod disables Swagger; agent auth uses `X-Agent-PSK` over HTTP on the private port.
+**Security:** do not use placeholder secrets from [`dockers/.env.example`](dockers/.env.example); prod disables Swagger; agent auth uses derived PSK + `X-Agent-Server-Id` over HTTP on the private port.
 
 **Operations:** backend health at `/actuator/health`; agent health at `:9091` (provisioner) and `:9092` (reporter). Upgrade central stack: `git pull && git submodule update --init --recursive && docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d --build`. Upgrade agents on GPU hosts: `git pull && sudo ./deploy/install.sh`.
 
@@ -262,7 +263,7 @@ Copy `dockers/.env.example` to `.env` at the repo root.
 | `BACKEND_AGENT_PORT`             | Host port for GPU agent internal API (default `8080`)                                               |
 | `BACKEND_AGENT_BIND`             | Required with prod compose: private/VPN IP (or `127.0.0.1` for prod-local)                          |
 | `CREDENTIALS_ENCRYPTION_KEY`     | AES key for SSH credential columns at rest (≥32 chars; required in prod)                            |
-| `AGENT_PSK`                      | `X-Agent-PSK` for internal APIs                                                                     |
+| `AGENT_MASTER_SECRET`            | Backend-only master secret (≥32 chars); used to derive per-host `AGENT_PSK` via interactive `derive-agent-psk.sh` — never deploy to GPU agents |
 | `JWT_SECRET`                     | JWT signing key (≥32 chars in prod)                                                                 |
 | `DB_PASSWORD` / `REDIS_PASSWORD` | Data store passwords                                                                                |
 | `CORS_ALLOWED_ORIGINS`           | Optional prod CORS origins (comma-separated); empty when UI and API share the same host via Traefik |

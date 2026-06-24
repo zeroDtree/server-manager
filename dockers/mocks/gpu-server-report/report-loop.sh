@@ -1,10 +1,47 @@
 #!/usr/bin/env bash
+
+# @help-begin
+# Dev mock GPU server report loop (Docker). Posts synthetic metrics to the backend.
+# Env-driven; normally invoked as the container CMD.
+#
+# Usage:
+#   ./report-loop.sh
+#
+# Env: REPORT_API_URL — backend base URL (default: http://backend:8080)
+# Env: AGENT_MASTER_SECRET — HMAC master secret for per-server PSK (default: change-me-in-production)
+# Env: AGENT_REPORT_INTERVAL — seconds between report cycles (default: 30)
+# Env: MOCK_SERVER_COUNT — number of mock servers (default: 100)
+# @help-end
+
+# @help-options-begin
+#   -h, --help              show help
+# @help-options-end
+
 set -euo pipefail
 
+usage() {
+  awk '/^# @help-begin$/{f=1; next} /^# @help-end$/{f=0} f' "$0"
+  printf '%s\n' '#' 'Options:' '#'
+  awk '/^# @help-options-begin$/{f=1; next} /^# @help-options-end$/{f=0} f' "$0"
+  exit 0
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help) usage ;;
+    *) printf '[gpu-server-report-mock] ERROR: Unexpected argument: %s (see --help)\n' "$arg" >&2; exit 1 ;;
+  esac
+done
+
 REPORT_API_URL="${REPORT_API_URL:-http://backend:8080}"
-AGENT_PSK="${AGENT_PSK:-change-me-in-production}"
+AGENT_MASTER_SECRET="${AGENT_MASTER_SECRET:-change-me-in-production}"
 AGENT_REPORT_INTERVAL="${AGENT_REPORT_INTERVAL:-${INTERVAL_SEC:-30}}"
 MOCK_SERVER_COUNT="${MOCK_SERVER_COUNT:-100}"
+
+derive_agent_psk() {
+  local server_id="$1"
+  printf '%s' "$server_id" | openssl dgst -sha256 -hmac "$AGENT_MASTER_SECRET" -hex | awk '{print $2}'
+}
 
 report_server() {
   local server_id="$1"
@@ -14,6 +51,9 @@ report_server() {
   local avg_mem="$5"
   local gpu_name="$6"
   local mem_total_mb="$7"
+  local agent_psk
+
+  agent_psk="$(derive_agent_psk "$server_id")"
 
   local collected_at gpus_json
   collected_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
@@ -21,7 +61,8 @@ report_server() {
 
   curl -sf -X POST "${REPORT_API_URL}/api/internal/servers/report" \
     -H "Content-Type: application/json" \
-    -H "X-Agent-PSK: ${AGENT_PSK}" \
+    -H "X-Agent-Server-Id: ${server_id}" \
+    -H "X-Agent-PSK: ${agent_psk}" \
     -d "{
       \"serverId\": \"${server_id}\",
       \"resourceLevel\": \"${resource_level}\",
@@ -89,7 +130,7 @@ report_all_mock_servers() {
 echo "[gpu-server-report-mock] targeting ${REPORT_API_URL}, interval ${AGENT_REPORT_INTERVAL}s, servers=${MOCK_SERVER_COUNT}"
 
 echo "[gpu-server-report-mock] waiting for backend..."
-until curl -sf "${REPORT_API_URL}/v3/api-docs" >/dev/null; do
+until curl -sf "${REPORT_API_URL}/actuator/health" >/dev/null; do
   sleep 2
 done
 echo "[gpu-server-report-mock] backend is ready"

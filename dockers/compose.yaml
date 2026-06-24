@@ -47,7 +47,8 @@ services:
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
-      AGENT_PSK: ${AGENT_PSK}
+      AGENT_MASTER_SECRET: ${AGENT_MASTER_SECRET}
+      BACKEND_AGENT_BIND: ${BACKEND_AGENT_BIND:-127.0.0.1}
       CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
     healthcheck:
@@ -81,7 +82,7 @@ services:
       context: mocks/account-provision
     environment:
       UPSTREAM_API_URL: http://backend:8080
-      AGENT_PSK: ${AGENT_PSK}
+      AGENT_MASTER_SECRET: ${AGENT_MASTER_SECRET}
       PROVISION_POLL_INTERVAL: 10
       MOCK_SERVER_COUNT: 100
     depends_on:
@@ -97,7 +98,7 @@ services:
       context: mocks/gpu-server-report
     environment:
       REPORT_API_URL: http://backend:8080
-      AGENT_PSK: ${AGENT_PSK}
+      AGENT_MASTER_SECRET: ${AGENT_MASTER_SECRET}
       AGENT_REPORT_INTERVAL: 30
       MOCK_SERVER_COUNT: 100
     depends_on:
