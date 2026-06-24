@@ -19,6 +19,8 @@ cd account_prepare && uv sync
 
 ## Spreadsheet columns
 
+What to collect from students (Chinese): [docs/info.md](../docs/info.md).
+
 Configured in [`registration_columns.yaml`](registration_columns.yaml):
 
 | Column | Example header |

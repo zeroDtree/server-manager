@@ -137,7 +137,7 @@ Then import users via **Admin → Import CSV**. Required columns: `email`, `linu
 
 ### Account preparation (spreadsheet → GSAD + NetBird)
 
-Bulk onboarding from a registration spreadsheet (email, linux username, name, student id, cohort) is handled by [`account_prepare/`](account_prepare/). It maintains a SQLite registration ledger (stable passwords), writes import CSVs under `data/account_prepare/`, reconciles status from NetBird and GSAD, and emails unified credentials.
+Bulk onboarding from a registration spreadsheet (email, linux username, name, student id, cohort) is handled by [`account_prepare/`](account_prepare/). It maintains a SQLite registration ledger (stable passwords), writes import CSVs under `data/account_prepare/`, reconciles status from NetBird and GSAD, and emails unified credentials. See [docs/info.md](docs/info.md) for what to collect from students.
 
 ```bash
 cd account_prepare && uv sync
