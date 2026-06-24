@@ -53,7 +53,8 @@ git submodule update --init --recursive
 
 ```bash
 cp dockers/.env.example .env
-# Set SPRING_PROFILES_ACTIVE=prod, GSAD_PUBLIC_HOST, ACME_EMAIL, strong secrets
+# Set GSAD_PUBLIC_HOST, ACME_EMAIL, and strong secrets (JWT_SECRET, AGENT_MASTER_SECRET, etc.)
+# compose.prod.yaml forces SPRING_PROFILES_ACTIVE=prod on the backend; .env value is ignored there
 # DNS for GSAD_PUBLIC_HOST must point at this host; open ports 80 and 443
 docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d --build
 ```
