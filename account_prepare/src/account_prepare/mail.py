@@ -6,6 +6,7 @@ import re
 import smtplib
 import sys
 import time
+from collections.abc import Callable
 from contextlib import contextmanager
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -229,6 +230,7 @@ def send_notices(
     dry_run: bool,
     delay_seconds: float,
     error_log: Path,
+    on_sent: Callable[[dict[str, str]], None] | None = None,
 ) -> tuple[int, int]:
     if dry_run:
         for row in rows:
@@ -252,6 +254,8 @@ def send_notices(
                 send_with_server(
                     server, smtp, to_email=to_email, subject=subj, body=body
                 )
+                if on_sent is not None:
+                    on_sent(row)
                 ok += 1
                 print(f"Sent to {to_email}")
             except (smtplib.SMTPException, OSError, ValueError) as e:

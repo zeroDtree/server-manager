@@ -8,7 +8,8 @@ import yaml
 from netbird_manage.cli.user_manage import _norm_header
 from netbird_manage.utils.netbird_validation import validate_email
 
-from account_prepare.passwords import generate_credential_pair, validate_linux_username
+from account_prepare.ledger import SpreadsheetRow
+from account_prepare.passwords import validate_linux_username
 
 _REQUIRED_KEYS = ("email", "linux_username", "name", "student_id", "cohort")
 
@@ -20,9 +21,6 @@ class ColumnMapping:
     name_key: str
     student_id_key: str
     cohort_key: str
-
-    def key_for(self, field: str) -> str:
-        return getattr(self, f"{field}_key")
 
 
 def load_column_mapping(path: Path) -> ColumnMapping:
@@ -55,17 +53,12 @@ def _read_field(row: dict[str, str], key: str) -> str:
     return (row.get(key) or "").strip()
 
 
-def parse_registration_rows(
+def validate_registration_rows(
     rows: list[dict[str, str]],
     mapping: ColumnMapping,
-    *,
-    auto_groups: str,
-    role: str,
-) -> tuple[list[dict[str, str]], list[dict[str, str]], list[dict[str, str]], list[str]]:
-    """Build GSAD, NetBird, credentials CSV rows and validation errors."""
-    gsad_rows: list[dict[str, str]] = []
-    netbird_rows: list[dict[str, str]] = []
-    credential_rows: list[dict[str, str]] = []
+) -> tuple[list[SpreadsheetRow], list[str]]:
+    """Validate spreadsheet rows; return profile rows and error messages."""
+    valid: list[SpreadsheetRow] = []
     errors: list[str] = []
 
     seen_emails: set[str] = set()
@@ -109,40 +102,17 @@ def parse_registration_rows(
                 continue
             seen_student_ids.add(student_id)
 
-        gsad_password, netbird_password = generate_credential_pair()
-
-        gsad_rows.append(
-            {
-                "email": email,
-                "linux_username": linux_username,
-                "display_name": display_name,
-                "student_id": student_id,
-                "cohort": cohort,
-                "initial_password": gsad_password,
-            }
-        )
-        netbird_rows.append(
-            {
-                "email": email,
-                "name": display_name,
-                "role": role,
-                "password": netbird_password,
-                "auto_groups": auto_groups,
-            }
-        )
-        credential_rows.append(
-            {
-                "email": email,
-                "display_name": display_name,
-                "linux_username": linux_username,
-                "student_id": student_id,
-                "cohort": cohort,
-                "gsad_password": gsad_password,
-                "netbird_password": netbird_password,
-            }
+        valid.append(
+            SpreadsheetRow(
+                email=email,
+                display_name=display_name,
+                linux_username=linux_username,
+                student_id=student_id,
+                cohort=cohort,
+            )
         )
 
-    return gsad_rows, netbird_rows, credential_rows, errors
+    return valid, errors
 
 
 def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, str]]) -> None:
@@ -151,18 +121,6 @@ def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, str]]) -> 
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
-
-
-def filter_delta_rows(
-    rows: list[dict[str, str]], registered_emails: set[str]
-) -> list[dict[str, str]]:
-    if not registered_emails:
-        return list(rows)
-    return [
-        row
-        for row in rows
-        if row.get("email", "").strip().lower() not in registered_emails
-    ]
 
 
 GSAD_FIELDNAMES = [

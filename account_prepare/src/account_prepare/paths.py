@@ -9,6 +9,7 @@ REPO_ROOT = ACCOUNT_PREPARE_DIR.parent
 DEFAULT_MAPPING = ACCOUNT_PREPARE_DIR / "registration_columns.yaml"
 DEFAULT_DATA_DIR = REPO_ROOT / "data" / "account_prepare"
 DEFAULT_INPUT = DEFAULT_DATA_DIR / "registration.xlsx"
+DEFAULT_LEDGER = DEFAULT_DATA_DIR / "registration_ledger.sqlite"
 
 
 def delta_path(path: Path) -> Path:

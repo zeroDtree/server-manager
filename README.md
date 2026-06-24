@@ -137,7 +137,7 @@ Then import users via **Admin → Import CSV**. Required columns: `email`, `linu
 
 ### Account preparation (spreadsheet → GSAD + NetBird)
 
-Bulk onboarding from a registration spreadsheet (email, linux username, name, student id, cohort) is handled by [`account_prepare/`](account_prepare/). It generates passwords, writes import CSVs under `data/account_prepare/`, and can email unified GSAD + NetBird credentials.
+Bulk onboarding from a registration spreadsheet (email, linux username, name, student id, cohort) is handled by [`account_prepare/`](account_prepare/). It maintains a SQLite registration ledger (stable passwords), writes import CSVs under `data/account_prepare/`, reconciles status from NetBird and GSAD, and emails unified credentials.
 
 ```bash
 cd account_prepare && uv sync
@@ -145,10 +145,11 @@ uv run --project account_prepare prepare-accounts
 uv run --project netbird-manage user-manage import \
   -f data/account_prepare/netbird_import_delta.csv --resolve-group-names
 # GSAD: Admin → 用户导入 ← data/account_prepare/gsad_users_delta.csv
-uv run --project account_prepare notify-accounts --send --delta
+uv run --project account_prepare reconcile-accounts
+uv run --project account_prepare notify-accounts --send
 ```
 
-Set `NETBIRD_TOKEN`, `GSAD_PUBLIC_URL`, and `SMTP_*` in repo-root `.env`. See [account_prepare/README.md](account_prepare/README.md).
+Set `GSAD_PUBLIC_URL`, `NETBIRD_TOKEN` (for reconcile), and `SMTP_*` in repo-root `.env`. See [account_prepare/README.md](account_prepare/README.md).
 
 ### Agent PSK (per GPU host)
 

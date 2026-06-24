@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import smtplib
 import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
+from account_prepare.ledger import Ledger
 from account_prepare.mail import (
     DEFAULT_ERROR_LOG,
     SUBJECT,
@@ -16,61 +16,23 @@ from account_prepare.mail import (
     send_notices,
     write_notice_files,
 )
-from account_prepare.paths import DEFAULT_DATA_DIR, REPO_ROOT, delta_path
-
-DEFAULT_CSV = DEFAULT_DATA_DIR / "credentials.csv"
-
-CREDENTIALS_REQUIRED = {
-    "email",
-    "display_name",
-    "linux_username",
-    "gsad_password",
-    "netbird_password",
-}
+from account_prepare.paths import DEFAULT_DATA_DIR, DEFAULT_LEDGER, REPO_ROOT
 
 
 def load_dotenv_repo_root() -> None:
     load_dotenv(REPO_ROOT / ".env")
 
 
-def load_credentials_rows(path: Path) -> list[dict[str, str]]:
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        if not reader.fieldnames or not CREDENTIALS_REQUIRED.issubset(
-            {h.strip() for h in reader.fieldnames}
-        ):
-            raise ValueError(
-                f"CSV must have columns: {', '.join(sorted(CREDENTIALS_REQUIRED))}; "
-                f"got {reader.fieldnames}"
-            )
-        rows: list[dict[str, str]] = []
-        for raw in reader:
-            email = (raw.get("email") or "").strip().lower()
-            display_name = (raw.get("display_name") or "").strip()
-            linux_username = (raw.get("linux_username") or "").strip()
-            gsad_password = (raw.get("gsad_password") or "").strip()
-            netbird_password = (raw.get("netbird_password") or "").strip()
-            if not email:
-                continue
-            if (
-                not display_name
-                or not linux_username
-                or not gsad_password
-                or not netbird_password
-            ):
-                raise ValueError(f"Missing required fields for {email}")
-            rows.append(
-                {
-                    "email": email,
-                    "display_name": display_name,
-                    "linux_username": linux_username,
-                    "student_id": (raw.get("student_id") or "").strip(),
-                    "cohort": (raw.get("cohort") or "").strip(),
-                    "gsad_password": gsad_password,
-                    "netbird_password": netbird_password,
-                }
-            )
-        return rows
+def ledger_row_to_notify(row) -> dict[str, str]:
+    return {
+        "email": row.email,
+        "display_name": row.display_name,
+        "linux_username": row.linux_username,
+        "student_id": row.student_id,
+        "cohort": row.cohort,
+        "gsad_password": row.gsad_password,
+        "netbird_password": row.netbird_password,
+    }
 
 
 def require_gsad_public_url() -> str:
@@ -93,18 +55,19 @@ def netbird_dashboard_url() -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Notify users of GSAD and NetBird credentials from credentials CSV."
+        description="Notify users whose GSAD and NetBird accounts are ready (from ledger)."
     )
     parser.add_argument(
-        "--csv",
+        "--ledger",
         type=Path,
-        default=DEFAULT_CSV,
-        help=f"Credentials CSV (default: {DEFAULT_CSV})",
+        default=DEFAULT_LEDGER,
+        help=f"Ledger database (default: {DEFAULT_LEDGER})",
     )
     parser.add_argument(
-        "--delta",
-        action="store_true",
-        help=f"Use {delta_path(DEFAULT_CSV).name} instead of full credentials CSV",
+        "--data-dir",
+        type=Path,
+        default=DEFAULT_DATA_DIR,
+        help="Used for default error log path under data dir",
     )
     parser.add_argument(
         "--subject",
@@ -143,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--error-log",
         type=Path,
-        default=DEFAULT_ERROR_LOG,
+        default=None,
         help=f"Append send failures as JSONL (default: {DEFAULT_ERROR_LOG})",
     )
     parser.add_argument(
@@ -165,22 +128,25 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run and not args.send:
         parser.error("--dry-run requires --send")
 
-    csv_path = delta_path(args.csv) if args.delta else args.csv
+    error_log = args.error_log or (args.data_dir / "notify_send_errors.jsonl")
+
+    if not args.ledger.is_file():
+        print(f"Ledger not found: {args.ledger}", file=sys.stderr)
+        return 2
 
     if args.send or args.print or args.out_dir is not None:
         load_dotenv_repo_root()
 
-    if not csv_path.is_file():
-        print(f"CSV not found: {csv_path}", file=sys.stderr)
-        return 2
-
     try:
-        rows = load_credentials_rows(csv_path)
+        with Ledger(args.ledger) as ledger:
+            ready = ledger.list_notify_ready()
         gsad_url = require_gsad_public_url()
         nb_url = netbird_dashboard_url()
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 2
+
+    rows = [ledger_row_to_notify(r) for r in ready]
 
     exclude = {e.strip().lower() for e in args.exclude_email}
     rows = [r for r in rows if r["email"].lower() not in exclude]
@@ -191,7 +157,8 @@ def main(argv: list[str] | None = None) -> int:
         missing = only - {r["email"].lower() for r in rows}
         if missing:
             print(
-                "Warning: --only-email not found in CSV: " + ", ".join(sorted(missing)),
+                "Warning: --only-email not in notify-ready set: "
+                + ", ".join(sorted(missing)),
                 file=sys.stderr,
             )
 
@@ -210,6 +177,11 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif args.send:
             delay = send_delay_seconds(args.delay)
+
+            def on_sent(row: dict[str, str]) -> None:
+                with Ledger(args.ledger) as ledger:
+                    ledger.mark_notified(row["email"])
+
             ok, failed = send_notices(
                 rows,
                 gsad_url=gsad_url,
@@ -217,7 +189,8 @@ def main(argv: list[str] | None = None) -> int:
                 subject=args.subject,
                 dry_run=args.dry_run,
                 delay_seconds=delay,
-                error_log=args.error_log,
+                error_log=error_log,
+                on_sent=None if args.dry_run else on_sent,
             )
             if not args.dry_run and failed:
                 return 1

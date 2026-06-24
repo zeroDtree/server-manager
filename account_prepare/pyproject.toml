@@ -12,6 +12,7 @@ dependencies = [
 
 [project.scripts]
 prepare-accounts = "account_prepare.prepare:main"
+reconcile-accounts = "account_prepare.reconcile:main"
 notify-accounts = "account_prepare.notify:main"
 
 [dependency-groups]
