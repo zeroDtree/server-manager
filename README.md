@@ -79,7 +79,7 @@ Traefik terminates HTTPS (Let's Encrypt). Agent access uses a separate HTTP port
 **Network requirements (required in prod)**
 
 - Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts only — NetBird mesh CIDR, private LAN, or firewall allowlist.
-- Set `BACKEND_AGENT_BIND` to the central host's private/VPN IP (prod rejects `0.0.0.0`).
+- Set `BACKEND_AGENT_BIND` to `127.0.0.1` or an RFC1918 address (prod rejects `0.0.0.0` and public IPs).
 - Do not expose `:8080` to the public internet (HTTP carries agent credentials in cleartext).
 - Use a long random `AGENT_MASTER_SECRET` on the **backend only**; prod startup rejects the default value.
 - Per GPU host: derive `AGENT_PSK` — see [Agent PSK (per GPU host)](#agent-psk-per-gpu-host). **Never** put `AGENT_MASTER_SECRET` on GPU hosts.
@@ -237,7 +237,7 @@ Copy `dockers/.env.example` to `.env` at the repo root.
 | `GSAD_PUBLIC_HOST`               | Public hostname for Traefik (prod); use `localhost` for prod-local                                                                             |
 | `ACME_EMAIL`                     | Let's Encrypt email (prod HTTPS)                                                                                                               |
 | `BACKEND_AGENT_PORT`             | Host port for GPU agent internal API (default `8080`)                                                                                          |
-| `BACKEND_AGENT_BIND`             | Required with prod compose: private/VPN IP (or `127.0.0.1` for prod-local)                                                                     |
+| `BACKEND_AGENT_BIND`             | Loopback or RFC1918 only in prod (default `127.0.0.1`; agents reach backend via VPN/SSH tunnel or same host)                                   |
 | `CREDENTIALS_ENCRYPTION_KEY`     | AES key for SSH credential columns at rest (≥32 chars; required in prod)                                                                       |
 | `AGENT_MASTER_SECRET`            | Backend-only master secret (≥32 chars); used to derive per-host `AGENT_PSK` via [`derive-agent-psk.sh`](utils/derive-agent-psk.sh) or [`derive-agent-psk-batch.sh`](utils/derive-agent-psk-batch.sh) — never deploy to GPU agents |
 | `JWT_SECRET`                     | JWT signing key (≥32 chars in prod)                                                                                                            |
