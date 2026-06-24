@@ -7,3 +7,6 @@
 [submodule "gsad-backend"]
 	path = gsad-backend
 	url = git@github.com:zeroDtree/gsad-backend.git
+[submodule "netbird-manage"]
+	path = netbird-manage
+	url = git@github.com:zeroDtree/netbird-manage.git
