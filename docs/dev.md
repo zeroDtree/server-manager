@@ -28,3 +28,10 @@ Flyway `dev` profile: admin `admin@gsad.local` / `Admin@123456`; mock servers `g
 ./utils/gsad-compose.sh --dev down -v
 ./utils/dev-up.sh -d
 ```
+
+## Tests
+
+```bash
+cd gsad-backend && ./mvnw test
+cd gsad-frontend && npm run lint && npm run typecheck && npm test
+```
