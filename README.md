@@ -1,24 +1,33 @@
 # GSAD — GPU Server Access Dashboard
 
-**Languages:** [English](README.md) · [简体中文](README.zh-CN.md)
+<p align="left">
+  <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a>
+</p>
 
-Self-hosted dashboard for GPU SSH access: users apply, agents provision accounts, and reporters send metrics.
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green.svg)](https://spring.io/projects/spring-boot)
+[![Vue](https://img.shields.io/badge/Vue-3.x-42b883.svg)](https://vuejs.org/)
+[![Vite](https://img.shields.io/badge/Vite-Latest-646cff.svg)](https://vitejs.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7-DC382D.svg)](https://redis.io/)
+[![Traefik](https://img.shields.io/badge/Traefik-v3-24A1C1.svg)](https://traefik.io/)
+[![Docker](https://img.shields.io/badge/Docker-Supported-blue.svg)](https://www.docker.com/)
 
-**Stack:** Spring Boot 4 / Java 21 · Vue 3 + Vite · PostgreSQL 16 · Redis 7 · Traefik v3
+> Self-hosted dashboard for GPU SSH access: users apply, agents provision accounts, and reporters send metrics.
 
-| I want to… | Start here |
-| ---------- | ---------- |
-| Deploy production | [Deploy](#deploy) |
-| Try locally (no TLS) | [docs/local-prod.md](docs/local-prod.md) |
-| Develop UI + mock agents | [docs/dev.md](docs/dev.md) |
-| Onboard students (spreadsheet) | [Account preparation](#account-preparation-spreadsheet--gsad--netbird) |
+## Quick Links
 
-*Operators → [Deploy](#deploy). Developers → [docs/dev.md](docs/dev.md).*
+| Production deploy       | Local tryout (no TLS)                    | UI and agent dev           | Student onboarding                                                      |
+| :---------------------- | :--------------------------------------- | :------------------------- | :---------------------------------------------------------------------- |
+| [Deploy guide](#deploy) | [docs/local-prod.md](docs/local-prod.md) | [docs/dev.md](docs/dev.md) | [Spreadsheet workflow](#account-preparation-spreadsheet--gsad--netbird) |
 
-## Contents
+---
+
+<details>
+<summary><b>Table of contents</b> (click to expand)</summary>
 
 - [GSAD — GPU Server Access Dashboard](#gsad--gpu-server-access-dashboard)
-  - [Contents](#contents)
+  - [Quick Links](#quick-links)
   - [Prerequisites](#prerequisites)
   - [Deploy](#deploy)
   - [Agent access \& security](#agent-access--security)
@@ -34,33 +43,44 @@ Self-hosted dashboard for GPU SSH access: users apply, agents provision accounts
   - [Tests](#tests)
   - [Further reading](#further-reading)
 
+</details>
+
+---
+
 ```mermaid
 flowchart TB
-  Browser(["Users / browser"])
+  Browser(["Users / Browser"])
 
-  subgraph central ["Central host (Docker)"]
+  subgraph central ["Central Host (Docker)"]
     Traefik["Traefik :443"]
     UI["Vue UI"]
-    Backend["Backend"]
+    Backend["Backend (Spring Boot)"]
     Traefik --> UI
     Traefik -->|"HTTPS /api JWT"| Backend
   end
 
-  subgraph data ["Data"]
-    PG[(PostgreSQL)]
-    RD[(Redis)]
+  subgraph data ["Data Layers"]
+    PG[("PostgreSQL 16")]
+    RD[("Redis 7")]
   end
 
-  subgraph agents ["GPU hosts"]
-    Prov[account-provisioner]
-    Rep[gpu-server-report]
+  subgraph agents ["GPU Hosts (Agents)"]
+    Prov["account-provisioner"]
+    Rep["gpu-server-report"]
   end
 
   Browser -->|"HTTPS :443"| Traefik
   Backend --> PG
   Backend --> RD
-  Prov -->|"HTTP agent port /api/internal"| Backend
-  Rep -->|"HTTP agent port /api/internal"| Backend
+  Prov -->|"HTTP BACKEND_AGENT_PORT /api/internal"| Backend
+  Rep -->|"HTTP BACKEND_AGENT_PORT /api/internal"| Backend
+
+  classDef central fill:#e1f5fe,stroke:#03a9f4,stroke-width:2px
+  classDef data fill:#efebe9,stroke:#795548,stroke-width:2px
+  classDef agents fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+  class Traefik,UI,Backend central
+  class PG,RD data
+  class Prov,Rep agents
 ```
 
 > [!NOTE]
@@ -80,11 +100,16 @@ git clone --recursive git@github.com:zeroDtree/server-manager.git
 # git submodule update --init --recursive
 ```
 
-2. Configure and start — edit `GSAD_PUBLIC_HOST` and `ACME_EMAIL` in `.env` before `secret.sh`:
+2. Configure and start — set `GSAD_PUBLIC_HOST` and `ACME_EMAIL` in `.env` before `secret.sh`:
+
+```ini
+# .env — set manually before ./utils/secret.sh
+GSAD_PUBLIC_HOST=gsad.example.com
+ACME_EMAIL=admin@example.com
+```
 
 ```bash
 cp .env.example .env
-# set GSAD_PUBLIC_HOST and ACME_EMAIL in .env
 ./utils/secret.sh
 docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d --build
 ```
@@ -94,14 +119,21 @@ docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d
 
 ```bash
 curl -sS "https://${GSAD_PUBLIC_HOST}/actuator/health"
-# expect: {"status":"UP",...}
+```
+
+```json
+{"status":"UP"}
 ```
 
 5. [Create the first admin](#first-admin).
 6. **Admin → Import servers** (CSV); [derive agent PSKs](docs/agent-psk.md); deploy [server-agent](server-agent/) on each GPU host.
 7. **Admin → Import users**.
-8. Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts / VPN CIDR only — never expose it on the public internet.
-9. Enable [backups](docs/backup.md); test a restore periodically.
+
+> [!WARNING]
+> **Network security (steps 8–9)**
+> - Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts / VPN CIDR only — never expose it to the public internet.
+> - HTTP carries agent credentials in cleartext; verify perimeter firewalls before enabling agents.
+> - Enable [backups](docs/backup.md) and test restore periodically.
 
 ## Agent access & security
 
@@ -186,7 +218,10 @@ Scheduled Postgres backups, log rotation, and restore — see [docs/backup.md](d
 
 ```bash
 curl -sS "https://${GSAD_PUBLIC_HOST}/actuator/health"
-# expect: {"status":"UP",...}
+```
+
+```json
+{"status":"UP"}
 ```
 
 Upgrade central stack:
@@ -204,6 +239,17 @@ Pre-flight: use the [local HTTP stack](docs/local-prod.md) to validate images an
 
 Git submodules — run `git submodule update --init --recursive` after clone.
 
+```text
+server-manager/
+├── gsad-backend/       # Spring Boot REST API
+├── gsad-frontend/      # Vue 3 + Vite UI
+├── server-agent/       # account-provisioner + gpu-server-report (systemd)
+├── account_prepare/    # Spreadsheet onboarding (SQLite ledger)
+├── netbird-manage/     # NetBird CLI (submodule)
+├── dockers/            # Compose, Dockerfiles, mock agents
+└── utils/              # Ops scripts (secrets, admin, PSK, backup)
+```
+
 | Path                                | Role                                                                                                          |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | [gsad-backend](gsad-backend/)       | REST API, Flyway, internal agent routes                                                                       |
@@ -218,18 +264,18 @@ Git submodules — run `git submodule update --init --recursive` after clone.
 
 Deploy requires `GSAD_PUBLIC_HOST` and `ACME_EMAIL` in `.env`. Run [`secret.sh`](utils/secret.sh) to generate random secrets (≥32 chars) for the rest. Keys you have already set are not overwritten. Full comments in [`.env.example`](.env.example).
 
-| Variable                         | Required | Default        | Notes                                                              |
-| -------------------------------- | -------- | -------------- | ------------------------------------------------------------------ |
-| `SPRING_PROFILES_ACTIVE`         | yes      | `dev`          | `prod` with `compose.prod.yaml`                                    |
-| `GSAD_PUBLIC_HOST`               | yes      | —              | Traefik hostname and DNS                                           |
-| `ACME_EMAIL`                     | yes      | —              | Let's Encrypt email                                                |
-| `BACKEND_AGENT_PORT`             | no       | `8080`         | Host port for agent internal API                                   |
-| `BACKEND_AGENT_BIND`             | no       | `127.0.0.1`    | Loopback or RFC1918; see [Agent access & security](#agent-access--security) |
-| `CREDENTIALS_ENCRYPTION_KEY`     | yes      | —              | AES key for SSH credentials at rest (≥32 chars)                    |
-| `AGENT_MASTER_SECRET`            | yes      | —              | Backend-only; derive PSK via [docs/agent-psk.md](docs/agent-psk.md) |
-| `JWT_SECRET`                     | yes      | —              | JWT signing key (≥32 chars)                                        |
-| `DB_PASSWORD` / `REDIS_PASSWORD` | yes      | —              | Data store passwords                                               |
-| `CORS_ALLOWED_ORIGINS`           | no       | empty          | Usually empty when UI and API share host via Traefik               |
+| Variable                         | Required?    | Default     | Description                                                              |
+| -------------------------------- | ------------ | ----------- | ------------------------------------------------------------------------ |
+| `GSAD_PUBLIC_HOST`               | **Required** | —           | Traefik hostname and DNS entry                                           |
+| `ACME_EMAIL`                     | **Required** | —           | Let's Encrypt account email for TLS certificates                         |
+| `SPRING_PROFILES_ACTIVE`         | **Required** | `dev`       | Set `prod` with `compose.prod.yaml`                                      |
+| `CREDENTIALS_ENCRYPTION_KEY`     | **Required** | —           | AES key for SSH credentials at rest (≥32 chars)                          |
+| `AGENT_MASTER_SECRET`            | **Required** | —           | Backend-only root; derive PSK via [docs/agent-psk.md](docs/agent-psk.md) |
+| `JWT_SECRET`                     | **Required** | —           | JWT signing key (≥32 chars)                                              |
+| `DB_PASSWORD` / `REDIS_PASSWORD` | **Required** | —           | Data store passwords                                                     |
+| `BACKEND_AGENT_PORT`             | Optional     | `8080`      | Private host port for agent internal API                                 |
+| `BACKEND_AGENT_BIND`             | Optional     | `127.0.0.1` | Loopback or RFC1918 internal IP only                                     |
+| `CORS_ALLOWED_ORIGINS`           | Optional     | empty       | Usually empty when UI and API share host via Traefik                     |
 
 > [!WARNING]
 > Do not use placeholder values from `.env.example`. Run [`secret.sh`](utils/secret.sh) or set strong random values manually. Swagger is disabled in production; agent auth uses derived PSK + `X-Agent-Server-Id` over HTTP on the private port.

@@ -1,29 +1,38 @@
 # GSAD — GPU 资源申请与分配
 
-**Languages:** [English](README.md) · [简体中文](README.zh-CN.md)
+<p align="left">
+  <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a>
+</p>
 
-自托管 GPU SSH 访问面板：用户申请访问，agent 开通账号，reporter 上报指标。
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green.svg)](https://spring.io/projects/spring-boot)
+[![Vue](https://img.shields.io/badge/Vue-3.x-42b883.svg)](https://vuejs.org/)
+[![Vite](https://img.shields.io/badge/Vite-Latest-646cff.svg)](https://vitejs.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7-DC382D.svg)](https://redis.io/)
+[![Traefik](https://img.shields.io/badge/Traefik-v3-24A1C1.svg)](https://traefik.io/)
+[![Docker](https://img.shields.io/badge/Docker-Supported-blue.svg)](https://www.docker.com/)
 
-**技术栈：** Spring Boot 4 / Java 21 · Vue 3 + Vite · PostgreSQL 16 · Redis 7 · Traefik v3
+> 自托管 GPU SSH 访问面板：用户申请访问，agent 开通账号，reporter 上报指标。
 
-| 我想… | 从这里开始 |
-| ----- | ---------- |
-| 生产部署 | [部署](#部署) |
-| 本地试用（无 TLS） | [docs/local-prod.zh-CN.md](docs/local-prod.zh-CN.md) |
-| 开发 UI + mock agent | [docs/dev.zh-CN.md](docs/dev.zh-CN.md) |
-| 学生批量 onboarding（表格） | [Account preparation](#account-preparation表格--gsad--netbird) |
+## 快速通道
 
-*运维 → [部署](#部署)。开发 → [docs/dev.zh-CN.md](docs/dev.zh-CN.md)。*
+| 生产部署 | 本地试用（无 TLS） | UI 与 agent 开发 | 学生 onboarding |
+| :--- | :--- | :--- | :--- |
+| [部署指南](#部署) | [docs/local-prod.zh-CN.md](docs/local-prod.zh-CN.md) | [docs/dev.zh-CN.md](docs/dev.zh-CN.md) | [表格流程](#account-preparation表格--gsad--netbird) |
 
-## 目录
+---
+
+<details>
+<summary><b>目录</b>（点击展开）</summary>
 
 - [前置条件](#前置条件)
 - [部署](#部署)
 - [Agent access & security](#agent-access--security)
 - [部署后](#部署后)
   - [First admin](#first-admin)
-  - [Account preparation](#account-preparation表格--gsad--netbird)
-  - [Agent PSK](#agent-psk-per-gpu-host)
+  - [Account preparation（表格 → GSAD + NetBird）](#account-preparation表格--gsad--netbird)
+  - [Agent PSK (per GPU host)](#agent-psk-per-gpu-host)
   - [Backup and restore](#backup-and-restore)
   - [Upgrades and health](#upgrades-and-health)
 - [仓库结构](#仓库结构)
@@ -32,33 +41,44 @@
 - [测试](#测试)
 - [延伸阅读](#延伸阅读)
 
+</details>
+
+---
+
 ```mermaid
 flowchart TB
-  Browser(["Users / browser"])
+  Browser(["Users / Browser"])
 
-  subgraph central ["Central host (Docker)"]
+  subgraph central ["Central Host (Docker)"]
     Traefik["Traefik :443"]
     UI["Vue UI"]
-    Backend["Backend"]
+    Backend["Backend (Spring Boot)"]
     Traefik --> UI
     Traefik -->|"HTTPS /api JWT"| Backend
   end
 
-  subgraph data ["Data"]
-    PG[(PostgreSQL)]
-    RD[(Redis)]
+  subgraph data ["Data Layers"]
+    PG[("PostgreSQL 16")]
+    RD[("Redis 7")]
   end
 
-  subgraph agents ["GPU hosts"]
-    Prov[account-provisioner]
-    Rep[gpu-server-report]
+  subgraph agents ["GPU Hosts (Agents)"]
+    Prov["account-provisioner"]
+    Rep["gpu-server-report"]
   end
 
   Browser -->|"HTTPS :443"| Traefik
   Backend --> PG
   Backend --> RD
-  Prov -->|"HTTP agent port /api/internal"| Backend
-  Rep -->|"HTTP agent port /api/internal"| Backend
+  Prov -->|"HTTP BACKEND_AGENT_PORT /api/internal"| Backend
+  Rep -->|"HTTP BACKEND_AGENT_PORT /api/internal"| Backend
+
+  classDef central fill:#e1f5fe,stroke:#03a9f4,stroke-width:2px
+  classDef data fill:#efebe9,stroke:#795548,stroke-width:2px
+  classDef agents fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+  class Traefik,UI,Backend central
+  class PG,RD data
+  class Prov,Rep agents
 ```
 
 > [!NOTE]
@@ -80,9 +100,14 @@ git clone --recursive git@github.com:zeroDtree/server-manager.git
 
 2. 配置并启动 — 在运行 `secret.sh` 前于 `.env` 中设置 `GSAD_PUBLIC_HOST` 与 `ACME_EMAIL`：
 
+```ini
+# .env — 在 ./utils/secret.sh 之前手动设置
+GSAD_PUBLIC_HOST=gsad.example.com
+ACME_EMAIL=admin@example.com
+```
+
 ```bash
 cp .env.example .env
-# 在 .env 中设置 GSAD_PUBLIC_HOST 与 ACME_EMAIL
 ./utils/secret.sh
 docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d --build
 ```
@@ -92,14 +117,21 @@ docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d
 
 ```bash
 curl -sS "https://${GSAD_PUBLIC_HOST}/actuator/health"
-# expect: {"status":"UP",...}
+```
+
+```json
+{"status":"UP"}
 ```
 
 5. [创建首个管理员](#first-admin)。
 6. **Admin → Import servers**（CSV）；[派生 agent PSK](docs/agent-psk.zh-CN.md)；在各 GPU 主机部署 [server-agent](server-agent/)。
 7. **Admin → Import users**。
-8. 将 `BACKEND_AGENT_PORT`（默认 `:8080`）限制为 GPU 主机 / VPN 网段 — 切勿暴露到公网。
-9. 启用[备份](docs/backup.zh-CN.md)；定期测试恢复。
+
+> [!WARNING]
+> **网络安全（步骤 8–9）**
+> - 将 `BACKEND_AGENT_PORT`（默认 `:8080`）限制为 GPU 主机 / VPN 网段 — 切勿暴露到公网。
+> - HTTP 明文传输 agent 凭据；启用 agent 前须验证边界防火墙。
+> - 启用[备份](docs/backup.zh-CN.md)并定期测试恢复。
 
 ## Agent access & security
 
@@ -184,7 +216,10 @@ curl -sS -X POST "https://${GSAD_PUBLIC_HOST}/api/auth/login" \
 
 ```bash
 curl -sS "https://${GSAD_PUBLIC_HOST}/actuator/health"
-# expect: {"status":"UP",...}
+```
+
+```json
+{"status":"UP"}
 ```
 
 升级中心栈：
@@ -202,6 +237,17 @@ git pull && git submodule update --init --recursive && \
 
 Git 子模块 — clone 后运行 `git submodule update --init --recursive`。
 
+```text
+server-manager/
+├── gsad-backend/       # Spring Boot REST API
+├── gsad-frontend/      # Vue 3 + Vite UI
+├── server-agent/       # account-provisioner + gpu-server-report (systemd)
+├── account_prepare/    # Spreadsheet onboarding (SQLite ledger)
+├── netbird-manage/     # NetBird CLI (submodule)
+├── dockers/            # Compose, Dockerfiles, mock agents
+└── utils/              # Ops scripts (secrets, admin, PSK, backup)
+```
+
 | 路径                                | 职责                                                                                     |
 | ----------------------------------- | ---------------------------------------------------------------------------------------- |
 | [gsad-backend](gsad-backend/)       | REST API、Flyway、internal agent 路由                                                    |
@@ -216,18 +262,18 @@ Git 子模块 — clone 后运行 `git submodule update --init --recursive`。
 
 部署需在 `.env` 中设置 `GSAD_PUBLIC_HOST` 与 `ACME_EMAIL`。运行 [`secret.sh`](utils/secret.sh) 为其余项生成 ≥32 字符随机密钥。已设置的键不会被覆盖。完整说明见 [`.env.example`](.env.example)。
 
-| 变量                             | 必填 | 默认           | 说明                                                                 |
-| -------------------------------- | ---- | -------------- | -------------------------------------------------------------------- |
-| `SPRING_PROFILES_ACTIVE`         | 是   | `dev`          | 配合 `compose.prod.yaml` 时为 `prod`                                 |
-| `GSAD_PUBLIC_HOST`               | 是   | —              | Traefik 主机名与 DNS                                                 |
-| `ACME_EMAIL`                     | 是   | —              | Let's Encrypt 邮箱                                                   |
-| `BACKEND_AGENT_PORT`             | 否   | `8080`         | Agent internal API 主机端口                                          |
-| `BACKEND_AGENT_BIND`             | 否   | `127.0.0.1`    | Loopback 或 RFC1918；见 [Agent access & security](#agent-access--security) |
-| `CREDENTIALS_ENCRYPTION_KEY`     | 是   | —              | SSH 凭据静态加密 AES 密钥（≥32 字符）                                |
-| `AGENT_MASTER_SECRET`            | 是   | —              | 仅 backend；经 [docs/agent-psk.zh-CN.md](docs/agent-psk.zh-CN.md) 派生 PSK |
-| `JWT_SECRET`                     | 是   | —              | JWT 签名密钥（≥32 字符）                                             |
-| `DB_PASSWORD` / `REDIS_PASSWORD` | 是   | —              | 数据存储密码                                                         |
-| `CORS_ALLOWED_ORIGINS`           | 否   | 空             | UI 与 API 经 Traefik 同域时通常留空                                  |
+| 变量                             | 必填?    | 默认           | 说明                                                                 |
+| -------------------------------- | -------- | -------------- | -------------------------------------------------------------------- |
+| `GSAD_PUBLIC_HOST`               | **必填** | —              | Traefik 主机名与 DNS                                                 |
+| `ACME_EMAIL`                     | **必填** | —              | Let's Encrypt TLS 证书注册邮箱                                       |
+| `SPRING_PROFILES_ACTIVE`         | **必填** | `dev`          | 配合 `compose.prod.yaml` 时为 `prod`                                 |
+| `CREDENTIALS_ENCRYPTION_KEY`     | **必填** | —              | SSH 凭据静态加密 AES 密钥（≥32 字符）                                |
+| `AGENT_MASTER_SECRET`            | **必填** | —              | 仅 backend；经 [docs/agent-psk.zh-CN.md](docs/agent-psk.zh-CN.md) 派生 PSK |
+| `JWT_SECRET`                     | **必填** | —              | JWT 签名密钥（≥32 字符）                                             |
+| `DB_PASSWORD` / `REDIS_PASSWORD` | **必填** | —              | 数据存储密码                                                         |
+| `BACKEND_AGENT_PORT`             | 可选     | `8080`         | Agent internal API 私网主机端口                                      |
+| `BACKEND_AGENT_BIND`             | 可选     | `127.0.0.1`    | 仅 loopback 或 RFC1918 内网 IP                                       |
+| `CORS_ALLOWED_ORIGINS`           | 可选     | 空             | UI 与 API 经 Traefik 同域时通常留空                                  |
 
 > [!WARNING]
 > 勿使用 `.env.example` 占位值。运行 [`secret.sh`](utils/secret.sh) 或手动设置强随机值。生产环境禁用 Swagger；agent 在私网 HTTP 端口使用派生 PSK + `X-Agent-Server-Id` 认证。
