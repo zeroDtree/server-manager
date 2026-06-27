@@ -1,5 +1,7 @@
 # Development
 
+**Languages:** [English](dev.md) · [简体中文](dev.zh-CN.md)
+
 ## Quick start
 
 ```bash

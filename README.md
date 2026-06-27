@@ -1,6 +1,38 @@
 # GSAD — GPU Server Access Dashboard
 
-GPU server access management: users apply for SSH access; agents on GPU hosts provision accounts and report metrics. Stack: Spring Boot 4 / Java 21, Vue 3 + Vite, PostgreSQL 16, Redis 7, Traefik v3.
+**Languages:** [English](README.md) · [简体中文](README.zh-CN.md)
+
+Self-hosted dashboard for GPU SSH access: users apply, agents provision accounts, and reporters send metrics.
+
+**Stack:** Spring Boot 4 / Java 21 · Vue 3 + Vite · PostgreSQL 16 · Redis 7 · Traefik v3
+
+| I want to… | Start here |
+| ---------- | ---------- |
+| Deploy production | [Deploy](#deploy) |
+| Try locally (no TLS) | [docs/local-prod.md](docs/local-prod.md) |
+| Develop UI + mock agents | [docs/dev.md](docs/dev.md) |
+| Onboard students (spreadsheet) | [Account preparation](#account-preparation-spreadsheet--gsad--netbird) |
+
+*Operators → [Deploy](#deploy). Developers → [docs/dev.md](docs/dev.md).*
+
+## Contents
+
+- [GSAD — GPU Server Access Dashboard](#gsad--gpu-server-access-dashboard)
+  - [Contents](#contents)
+  - [Prerequisites](#prerequisites)
+  - [Deploy](#deploy)
+  - [Agent access \& security](#agent-access--security)
+  - [After deploy](#after-deploy)
+    - [First admin](#first-admin)
+    - [Account preparation (spreadsheet → GSAD + NetBird)](#account-preparation-spreadsheet--gsad--netbird)
+    - [Agent PSK (per GPU host)](#agent-psk-per-gpu-host)
+    - [Backup and restore](#backup-and-restore)
+    - [Upgrades and health](#upgrades-and-health)
+  - [Repository layout](#repository-layout)
+  - [Configuration](#configuration)
+  - [Other setups](#other-setups)
+  - [Tests](#tests)
+  - [Further reading](#further-reading)
 
 ```mermaid
 flowchart TB
@@ -9,9 +41,9 @@ flowchart TB
   subgraph central ["Central host (Docker)"]
     Traefik["Traefik :443"]
     UI["Vue UI"]
-    API["Backend :8080"]
+    Backend["Backend"]
     Traefik --> UI
-    Traefik -->|"/api (JWT)"| API
+    Traefik -->|"HTTPS /api JWT"| Backend
   end
 
   subgraph data ["Data"]
@@ -24,16 +56,15 @@ flowchart TB
     Rep[gpu-server-report]
   end
 
-  Browser -->|HTTPS| Traefik
-  API --> PG
-  API --> RD
-  Prov -->|"HTTP :8080 /api/internal"| API
-  Rep -->|"HTTP :8080 /api/internal"| API
+  Browser -->|"HTTPS :443"| Traefik
+  Backend --> PG
+  Backend --> RD
+  Prov -->|"HTTP agent port /api/internal"| Backend
+  Rep -->|"HTTP agent port /api/internal"| Backend
 ```
 
-Users reach the UI and public `/api` over HTTPS via Traefik (`:443`). GPU agents call `/api/internal/*` on plain HTTP at `BACKEND_AGENT_PORT` on the host's private/VPN IP (Traefik blocks those routes on `:443`). See [Agent access & security](#agent-access--security).
-
-Local development with mock agents → [docs/dev.md](docs/dev.md).
+> [!NOTE]
+> Agents call `/api/internal/*` over HTTP on `BACKEND_AGENT_PORT` (private/VPN IP). Traefik blocks these routes on `:443`. See [Agent access & security](#agent-access--security).
 
 ## Prerequisites
 
@@ -49,27 +80,30 @@ git clone --recursive git@github.com:zeroDtree/server-manager.git
 # git submodule update --init --recursive
 ```
 
-2. Copy [`.env.example`](.env.example), set `GSAD_PUBLIC_HOST` and `ACME_EMAIL`, then run [`secret.sh`](utils/secret.sh) (fills random secrets ≥32 chars; skips keys already set).
-3. Point DNS for `GSAD_PUBLIC_HOST` at this host; open ports 80 and 443.
-4. Start the stack:
+2. Configure and start — edit `GSAD_PUBLIC_HOST` and `ACME_EMAIL` in `.env` before `secret.sh`:
 
 ```bash
 cp .env.example .env
+# set GSAD_PUBLIC_HOST and ACME_EMAIL in .env
 ./utils/secret.sh
 docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d --build
 ```
 
-Traefik terminates HTTPS (Let's Encrypt). Agent access uses a separate HTTP port — see [Agent access & security](#agent-access--security).
+3. Point DNS for `GSAD_PUBLIC_HOST` at this host; open ports 80 and 443. Traefik terminates HTTPS (Let's Encrypt).
+4. Wait for backend health:
 
-5. Wait for `backend` health at `/actuator/health`.
-6. [Create the first admin](#first-admin).
-7. Import users via **Admin → Import CSV** and register GPU servers via **Admin → 服务器导入**; [derive agent PSKs](#agent-psk-per-gpu-host) and deploy [server-agent](server-agent/) on each GPU host.
+```bash
+curl -sS "https://${GSAD_PUBLIC_HOST}/actuator/health"
+# expect: {"status":"UP",...}
+```
+
+5. [Create the first admin](#first-admin).
+6. **Admin → Import servers** (CSV); [derive agent PSKs](docs/agent-psk.md); deploy [server-agent](server-agent/) on each GPU host.
+7. **Admin → Import users**.
 8. Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts / VPN CIDR only — never expose it on the public internet.
-9. Enable backups ([`install-backup-timer.sh`](utils/install-backup-timer.sh) or [cron](#backup-and-restore)); test a restore periodically.
+9. Enable [backups](docs/backup.md); test a restore periodically.
 
-**Security:** do not use placeholder secrets from [`.env.example`](.env.example); Swagger is disabled; agent auth uses derived PSK + `X-Agent-Server-Id` over HTTP on the private port.
-
-### Agent access & security
+## Agent access & security
 
 **Two entry paths**
 
@@ -88,9 +122,12 @@ Traefik terminates HTTPS (Let's Encrypt). Agent access uses a separate HTTP port
 
 - Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts only — NetBird mesh CIDR, private LAN, or firewall allowlist.
 - Set `BACKEND_AGENT_BIND` to `127.0.0.1` or an RFC1918 address; startup rejects `0.0.0.0` and public IPs.
-- Do not expose `:8080` to the public internet (HTTP carries agent credentials in cleartext).
-- Use a long random `AGENT_MASTER_SECRET` on the **backend only**; the backend rejects the default value.
-- Per GPU host: derive `AGENT_PSK` — see [Agent PSK (per GPU host)](#agent-psk-per-gpu-host). **Never** put `AGENT_MASTER_SECRET` on GPU hosts.
+
+> [!WARNING]
+> Do not expose `:8080` to the public internet. HTTP carries agent credentials in cleartext.
+
+> [!IMPORTANT]
+> Use a long random `AGENT_MASTER_SECRET` on the **backend only**; the backend rejects the default value. Per GPU host, derive `AGENT_PSK` — see [Agent PSK (per GPU host)](docs/agent-psk.md). Never put `AGENT_MASTER_SECRET` on GPU hosts.
 
 **Agent config:** `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080` — see [server-agent/README.md](server-agent/README.md).
 
@@ -98,7 +135,7 @@ Traefik terminates HTTPS (Let's Encrypt). Agent access uses a separate HTTP port
 
 ### First admin
 
-Flyway is schema-only; there is **no seeded admin**. Register GPU servers via **Admin → 服务器导入** (CSV). Create the first admin with [`create-prod-admin.sh`](utils/create-prod-admin.sh) after `backend` and `postgres` are healthy.
+Flyway is schema-only; there is **no seeded admin**. After `backend` and `postgres` are healthy, create the first admin with [`create-prod-admin.sh`](utils/create-prod-admin.sh).
 
 From the repo root:
 
@@ -128,93 +165,29 @@ On the [local HTTP stack](docs/local-prod.md), use `http://localhost/api/auth/lo
 
 Change the bootstrap password via **Account → Change password** in the sidebar (or `POST /api/auth/change-password`).
 
-Import users via **Admin → Import CSV**. Required columns: `email`, `linux_username`, `initial_password` (min 8 chars). Optional: `display_name`, `student_id`, `cohort`, `roles`. Distribute initial passwords out-of-band — they are never returned in the API response. Admins can reset a user's login password from **Admin → Users** (non-admin accounts only).
+Import users via **Admin → Import users**. Required columns: `email`, `linux_username`, `initial_password` (min 8 chars). Optional: `display_name`, `student_id`, `cohort`, `roles`. Distribute initial passwords out-of-band — they are never returned in the API response. Admins can reset a user's login password from **Admin → Users** (non-admin accounts only).
 
 ### Account preparation (spreadsheet → GSAD + NetBird)
 
-Bulk onboarding from a registration spreadsheet (email, linux username, name, student id, cohort) is handled by [`account_prepare/`](account_prepare/). It maintains a SQLite registration ledger (stable passwords), writes import CSVs under `data/account_prepare/`, reconciles status from NetBird and GSAD, and emails unified credentials. See [docs/info.md](docs/info.md) for what to collect from students.
-
-```bash
-cd account_prepare && uv sync
-uv run --project account_prepare prepare-accounts
-uv run --project netbird-manage user-manage import \
-  -f data/account_prepare/netbird_import_delta.csv --resolve-group-names
-# GSAD: Admin → 用户导入 ← data/account_prepare/gsad_users_delta.csv
-uv run --project account_prepare reconcile-accounts
-uv run --project account_prepare notify-accounts --send
-```
-
-Set `GSAD_PUBLIC_URL`, `NETBIRD_TOKEN` (for reconcile), and `SMTP_*` in repo-root `.env`. See [account_prepare/README.md](account_prepare/README.md).
+Bulk onboarding from a registration spreadsheet is handled by [`account_prepare/`](account_prepare/): SQLite ledger, import CSVs under `data/account_prepare/`, NetBird/GSAD reconcile, and unified credential email. See [docs/info.md](docs/info.md) for what to collect from students and [account_prepare/README.md](account_prepare/README.md) for the full workflow (`prepare-accounts` → NetBird import → GSAD UI import → `reconcile-accounts` → `notify-accounts`).
 
 ### Agent PSK (per GPU host)
 
-Each GPU agent authenticates with a per-server HMAC derived from the backend-only `AGENT_MASTER_SECRET`. Run [`derive-agent-psk.sh`](utils/derive-agent-psk.sh) on a trusted machine with a TTY (your laptop or the central host — **not** on GPU agents). The script prompts for the master secret twice; it is never read from env or argv.
-
-From the repo root, after you know `AGENT_SERVER_ID` for that host:
-
-```bash
-./utils/derive-agent-psk.sh <AGENT_SERVER_ID>
-```
-
-Capture stdout for agent config (prints only the derived hex):
-
-```bash
-AGENT_PSK=$(./utils/derive-agent-psk.sh gpu-node-01)
-```
-
-**Batch (many hosts):** put `server_id` in a CSV (optional extra columns preserved), prompt once for the master secret, get `agent_psk` per row:
-
-```bash
-./utils/derive-agent-psk-batch.sh servers.csv -o agents-with-psk.csv
-chmod 600 agents-with-psk.csv
-```
-
-Stdout-only (redirect yourself): `./utils/derive-agent-psk-batch.sh servers.csv > agents-with-psk.csv`. Output contains secrets — do not commit.
-
-Upload the same CSV via **Admin → 服务器导入** (`server_id` required; `agent_psk` column is ignored). Use `agent_psk` when deploying agents.
-
-Paste the hex into the agent's `AGENT_PSK` in [`server-agent/deploy/env/common.env`](server-agent/deploy/env/common.env). **Never** deploy `AGENT_MASTER_SECRET` to GPU hosts.
-
-Set `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080` on each agent — see [Agent access & security](#agent-access--security) and [server-agent/README.md](server-agent/README.md).
+Each GPU agent uses a per-server HMAC derived from the backend-only `AGENT_MASTER_SECRET`. Derive `AGENT_PSK` on a trusted machine and deploy to agents — see [docs/agent-psk.md](docs/agent-psk.md).
 
 ### Backup and restore
 
-DB backup script: [`utils/backup-postgres.sh`](utils/backup-postgres.sh). Defaults: 30-day retention, 500 MB total cap under `<repo>/backups/`. Override with `BACKUP_DIR`, `RETENTION_DAYS`, `MAX_TOTAL_MB`.
-
-Container logs are rotated at 10 MB × 3 files per service (see [`dockers/compose.yaml`](dockers/compose.yaml)). DB backups are capped as above.
-
-**systemd timer** (recommended): installs units with `@REPO_ROOT@` resolved to this clone; output goes to journald:
-
-```bash
-sudo ./utils/install-backup-timer.sh
-```
-
-Check status: `systemctl status gsad-backup-postgres.timer` · View logs: `journalctl -t gsad-backup`
-
-**Cron** (alternative; daily at 03:00; use your clone path):
-
-```cron
-0 3 * * * cd /opt/server-manager && ./utils/backup-postgres.sh 2>&1 | logger -t gsad-backup
-```
-
-After changing compose logging options, recreate containers so limits apply:
-
-```bash
-docker compose --profile prod up -d --force-recreate
-docker inspect gsad-backend-1 --format '{{.HostConfig.LogConfig}}'
-# expect: map[max-file:3 max-size:10m]
-```
-
-**Restore** (maintenance window — stop backend or pause writes first):
-
-```bash
-gunzip -c backups/gsad_YYYYMMDD_HHMMSS.sql.gz | docker compose exec -T postgres psql -U gsad gsad
-```
+Scheduled Postgres backups, log rotation, and restore — see [docs/backup.md](docs/backup.md).
 
 ### Upgrades and health
 
 - Backend health: `/actuator/health`
 - Agent health: `:9091` (provisioner), `:9092` (reporter)
+
+```bash
+curl -sS "https://${GSAD_PUBLIC_HOST}/actuator/health"
+# expect: {"status":"UP",...}
+```
 
 Upgrade central stack:
 
@@ -243,22 +216,23 @@ Git submodules — run `git submodule update --init --recursive` after clone.
 
 ## Configuration
 
-Copy `.env.example` to `.env`, then run [`secret.sh`](utils/secret.sh) to generate random secrets (≥32 chars). Keys you have already set are not overwritten.
+Deploy requires `GSAD_PUBLIC_HOST` and `ACME_EMAIL` in `.env`. Run [`secret.sh`](utils/secret.sh) to generate random secrets (≥32 chars) for the rest. Keys you have already set are not overwritten. Full comments in [`.env.example`](.env.example).
 
-| Variable                         | Description                                                                                                                                                                                                                       |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SPRING_PROFILES_ACTIVE`         | `prod` when using `compose.prod.yaml`; `dev` for local development                                                                                                                                                                |
-| `GSAD_PUBLIC_HOST`               | Public hostname for Traefik and DNS                                                                                                                                                                                               |
-| `ACME_EMAIL`                     | Let's Encrypt registration email                                                                                                                                                                                                  |
-| `BACKEND_AGENT_PORT`             | Host port for GPU agent internal API (default `8080`)                                                                                                                                                                             |
-| `BACKEND_AGENT_BIND`             | Loopback or RFC1918 only (default `127.0.0.1`); `0.0.0.0` and public IPs rejected at startup; agents reach backend via VPN/SSH tunnel or same host                                                                                |
-| `CREDENTIALS_ENCRYPTION_KEY`     | AES key for SSH credential columns at rest (≥32 chars; required)                                                                                                                                                                  |
-| `AGENT_MASTER_SECRET`            | Backend-only master secret (≥32 chars); used to derive per-host `AGENT_PSK` via [`derive-agent-psk.sh`](utils/derive-agent-psk.sh) or [`derive-agent-psk-batch.sh`](utils/derive-agent-psk-batch.sh) — never deploy to GPU agents |
-| `JWT_SECRET`                     | JWT signing key (≥32 chars; required)                                                                                                                                                                                             |
-| `DB_PASSWORD` / `REDIS_PASSWORD` | Data store passwords                                                                                                                                                                                                              |
-| `CORS_ALLOWED_ORIGINS`           | Optional comma-separated origins; usually empty when UI and API share the same host via Traefik                                                                                                                                   |
+| Variable                         | Required | Default        | Notes                                                              |
+| -------------------------------- | -------- | -------------- | ------------------------------------------------------------------ |
+| `SPRING_PROFILES_ACTIVE`         | yes      | `dev`          | `prod` with `compose.prod.yaml`                                    |
+| `GSAD_PUBLIC_HOST`               | yes      | —              | Traefik hostname and DNS                                           |
+| `ACME_EMAIL`                     | yes      | —              | Let's Encrypt email                                                |
+| `BACKEND_AGENT_PORT`             | no       | `8080`         | Host port for agent internal API                                   |
+| `BACKEND_AGENT_BIND`             | no       | `127.0.0.1`    | Loopback or RFC1918; see [Agent access & security](#agent-access--security) |
+| `CREDENTIALS_ENCRYPTION_KEY`     | yes      | —              | AES key for SSH credentials at rest (≥32 chars)                    |
+| `AGENT_MASTER_SECRET`            | yes      | —              | Backend-only; derive PSK via [docs/agent-psk.md](docs/agent-psk.md) |
+| `JWT_SECRET`                     | yes      | —              | JWT signing key (≥32 chars)                                        |
+| `DB_PASSWORD` / `REDIS_PASSWORD` | yes      | —              | Data store passwords                                               |
+| `CORS_ALLOWED_ORIGINS`           | no       | empty          | Usually empty when UI and API share host via Traefik               |
 
-Do not use placeholder values from `.env.example`; run [`secret.sh`](utils/secret.sh) or set strong random values manually.
+> [!WARNING]
+> Do not use placeholder values from `.env.example`. Run [`secret.sh`](utils/secret.sh) or set strong random values manually. Swagger is disabled in production; agent auth uses derived PSK + `X-Agent-Server-Id` over HTTP on the private port.
 
 ## Other setups
 
@@ -274,10 +248,13 @@ cd gsad-backend && ./mvnw test
 cd gsad-frontend && npm run lint && npm run typecheck && npm test
 ```
 
+License: [LICENSE](LICENSE)
+
 ## Further reading
 
-- [docs/dev.md](docs/dev.md) — local development with mock agents
-- [docs/local-prod.md](docs/local-prod.md) — local HTTP stack on localhost
+- [docs/agent-psk.md](docs/agent-psk.md) — per-GPU host PSK derivation
+- [docs/backup.md](docs/backup.md) — backup, restore, and log rotation
+- [account_prepare/README.md](account_prepare/README.md) — spreadsheet onboarding workflow
 - [gsad-backend/README.md](gsad-backend/README.md) — API routes, schema, Flyway
 - [server-agent/README.md](server-agent/README.md) — GPU host agent install
 - [gsad-frontend/openapi/openapi.json](gsad-frontend/openapi/openapi.json) — OpenAPI spec (checked in)
