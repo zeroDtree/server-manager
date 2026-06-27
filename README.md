@@ -53,7 +53,8 @@ git submodule update --init --recursive
 
 ```bash
 cp dockers/.env.example .env
-# Set GSAD_PUBLIC_HOST, ACME_EMAIL, and strong secrets (JWT_SECRET, AGENT_MASTER_SECRET, etc.)
+./utils/secret.sh
+# Set GSAD_PUBLIC_HOST and ACME_EMAIL for prod
 # compose.prod.yaml forces SPRING_PROFILES_ACTIVE=prod on the backend; .env value is ignored there
 # DNS for GSAD_PUBLIC_HOST must point at this host; open ports 80 and 443
 docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d --build
@@ -218,7 +219,7 @@ gunzip -c backups/gsad_YYYYMMDD_HHMMSS.sql.gz | docker compose exec -T postgres 
 
 ### Production checklist & best practices
 
-1. Generate strong random `JWT_SECRET` (≥32 chars), `AGENT_MASTER_SECRET`, `DB_PASSWORD`, `REDIS_PASSWORD`.
+1. Run [`secret.sh`](utils/secret.sh) after copying `.env.example` (fills random secrets ≥32 chars; skips keys already set).
 2. Point DNS for `GSAD_PUBLIC_HOST` at the host; open ports 80 and 443.
 3. Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts / VPN CIDR only — never expose it on the public internet.
 4. Start the prod stack; wait for `backend` health OK.
@@ -245,11 +246,11 @@ Git submodules — run `git submodule update --init --recursive` after clone.
 | [netbird-manage](netbird-manage/) | NetBird CLI (`user-manage`, `policy-manage`) — submodule                                                         |
 | [account_prepare](account_prepare/) | Registration spreadsheet → GSAD/NetBird CSVs and credential email                                              |
 | [dockers](dockers/)             | Compose files, Dockerfiles, and dev mock agents (`dockers/mocks/`)                                                 |
-| [utils](utils/)                 | Repo-level ops scripts (prod admin bootstrap, agent PSK derivation, server registration, DB backup, systemd units) |
+| [utils](utils/)                 | Repo-level ops scripts (`.env` secret bootstrap, prod admin, agent PSK derivation, DB backup, systemd units) |
 
 ## Configuration
 
-Copy `dockers/.env.example` to `.env` at the repo root.
+Copy `dockers/.env.example` to `.env` at the repo root, then run [`secret.sh`](utils/secret.sh) to generate random secrets (≥32 chars). Keys you have already set are not overwritten.
 
 | Variable                         | Description                                                                                                                                    |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -264,7 +265,7 @@ Copy `dockers/.env.example` to `.env` at the repo root.
 | `DB_PASSWORD` / `REDIS_PASSWORD` | Data store passwords                                                                                                                           |
 | `CORS_ALLOWED_ORIGINS`           | Optional prod CORS origins (comma-separated); empty when UI and API share the same host via Traefik                                            |
 
-In `prod`, replace all placeholders in `.env` with strong random secrets; do not use values from `dockers/.env.example` as-is.
+In `prod`, do not use placeholder values from `dockers/.env.example`; run [`secret.sh`](utils/secret.sh) or set strong random values manually.
 
 ## Tests
 

@@ -4,6 +4,7 @@
 
 ```bash
 cp dockers/.env.example .env
+./utils/secret.sh
 docker compose --profile mock up --build
 cd gsad-frontend && npm install && npm run dev
 ```

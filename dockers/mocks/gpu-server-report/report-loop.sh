@@ -8,7 +8,7 @@
 #   ./report-loop.sh
 #
 # Env: REPORT_API_URL — backend base URL (default: http://backend:8080)
-# Env: AGENT_MASTER_SECRET — HMAC master secret for per-server PSK (default: change-me-in-production)
+# Env: AGENT_MASTER_SECRET — HMAC master secret for per-server PSK (default: change-me-AGENT_MASTER_SECRET-at-least-32-chars)
 # Env: AGENT_REPORT_INTERVAL — seconds between report cycles (default: 30)
 # Env: MOCK_SERVER_COUNT — number of mock servers (default: 100)
 # @help-end

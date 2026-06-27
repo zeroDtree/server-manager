@@ -10,7 +10,9 @@ import time
 import requests
 
 UPSTREAM_API_URL = os.environ.get("UPSTREAM_API_URL", "http://backend:8080").rstrip("/")
-AGENT_MASTER_SECRET = os.environ.get("AGENT_MASTER_SECRET", "change-me-in-production")
+AGENT_MASTER_SECRET = os.environ.get(
+    "AGENT_MASTER_SECRET", "change-me-AGENT_MASTER_SECRET-at-least-32-chars"
+)
 POLL_INTERVAL = max(5, int(os.environ.get("PROVISION_POLL_INTERVAL", "10")))
 MOCK_SERVER_COUNT = max(1, int(os.environ.get("MOCK_SERVER_COUNT", "100")))
 
