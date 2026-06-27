@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
 # @help-begin
-# Generate random secrets in repo-root .env (≥32 chars, hex).
-# Creates .env from .env.example if missing. Skips keys already set to non-placeholder values.
+# Generate random secrets in repo-root .env.secrets (≥32 chars, hex).
+# Creates .env.secrets from .env.secrets.example if missing. Skips keys already set to non-placeholder values.
+# Migrates secret keys from legacy single-file .env on first run.
 #
 # Usage:
 #   ./secret.sh
@@ -36,8 +37,9 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-ENV_EXAMPLE="${REPO_ROOT}/.env.example"
 ENV_FILE="${REPO_ROOT}/.env"
+SECRETS_EXAMPLE="${REPO_ROOT}/.env.secrets.example"
+SECRETS_FILE="${REPO_ROOT}/.env.secrets"
 
 SECRET_KEYS=(
   DB_PASSWORD
@@ -52,8 +54,8 @@ placeholder_for() {
 }
 
 get_env_value() {
-  local key="$1"
-  grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true
+  local key="$1" file="$2"
+  grep -E "^${key}=" "$file" 2>/dev/null | tail -1 | cut -d= -f2- || true
 }
 
 needs_generation() {
@@ -67,7 +69,7 @@ generate_secret() {
 }
 
 set_env_value() {
-  local key="$1" value="$2"
+  local key="$1" value="$2" file="$3"
   local tmp found=0
   tmp="$(mktemp)"
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -77,23 +79,61 @@ set_env_value() {
     else
       printf '%s\n' "$line" >>"$tmp"
     fi
-  done <"$ENV_FILE"
+  done <"$file"
   if [[ "$found" -eq 0 ]]; then
     printf '%s=%s\n' "$key" "$value" >>"$tmp"
   fi
-  mv "$tmp" "$ENV_FILE"
+  mv "$tmp" "$file"
+}
+
+remove_env_key() {
+  local key="$1" file="$2"
+  local tmp
+  tmp="$(mktemp)"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" =~ ^${key}= ]]; then
+      continue
+    fi
+    printf '%s\n' "$line" >>"$tmp"
+  done <"$file"
+  mv "$tmp" "$file"
+}
+
+migrate_secrets_from_env() {
+  if [[ ! -f "$ENV_FILE" ]]; then
+    return 0
+  fi
+
+  local key value migrated=0
+  for key in "${SECRET_KEYS[@]}"; do
+    value="$(get_env_value "$key" "$ENV_FILE")"
+    if [[ -n "$value" ]] && ! needs_generation "$key" "$value"; then
+      set_env_value "$key" "$value" "$SECRETS_FILE"
+      remove_env_key "$key" "$ENV_FILE"
+      migrated=1
+    elif [[ -n "$value" ]]; then
+      remove_env_key "$key" "$ENV_FILE"
+      migrated=1
+    fi
+  done
+
+  if [[ "$migrated" -eq 1 ]]; then
+    log "migrated secrets from .env to .env.secrets"
+  fi
 }
 
 cd "$REPO_ROOT"
 
-if [[ ! -f "$ENV_EXAMPLE" ]]; then
-  die "missing ${ENV_EXAMPLE}"
+if [[ ! -f "$SECRETS_EXAMPLE" ]]; then
+  die "missing ${SECRETS_EXAMPLE}"
 fi
 
-if [[ ! -f "$ENV_FILE" ]]; then
-  cp "$ENV_EXAMPLE" "$ENV_FILE"
-  log "created .env from .env.example"
+if [[ ! -f "$SECRETS_FILE" ]]; then
+  cp "$SECRETS_EXAMPLE" "$SECRETS_FILE"
+  log "created .env.secrets from .env.secrets.example"
 fi
+
+migrate_secrets_from_env
 
 command -v openssl >/dev/null 2>&1 || die "openssl is required"
 
@@ -101,16 +141,16 @@ generated=()
 skipped=()
 
 for key in "${SECRET_KEYS[@]}"; do
-  value="$(get_env_value "$key")"
+  value="$(get_env_value "$key" "$SECRETS_FILE")"
   if needs_generation "$key" "$value"; then
-    set_env_value "$key" "$(generate_secret)"
+    set_env_value "$key" "$(generate_secret)" "$SECRETS_FILE"
     generated+=("$key")
   else
     skipped+=("$key")
   fi
 done
 
-chmod 600 "$ENV_FILE"
+chmod 600 "$SECRETS_FILE"
 
 if ((${#generated[@]} > 0)); then
   log "generated: ${generated[*]}"

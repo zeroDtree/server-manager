@@ -4,7 +4,6 @@ import argparse
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
 from netbird_manage.cli.user_manage import load_rows
 
 from account_prepare.columns import load_column_mapping, validate_registration_rows
@@ -16,6 +15,7 @@ from account_prepare.paths import (
     DEFAULT_LEDGER,
     DEFAULT_MAPPING,
     REPO_ROOT,
+    load_repo_env,
 )
 from account_prepare.reconcile import run_reconcile
 
@@ -24,7 +24,7 @@ DEFAULT_ROLE = "user"
 
 
 def main(argv: list[str] | None = None) -> int:
-    load_dotenv()
+    load_repo_env()
 
     parser = argparse.ArgumentParser(
         description="Upsert registration ledger from spreadsheet and export import CSVs.",

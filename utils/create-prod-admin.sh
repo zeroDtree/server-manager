@@ -44,6 +44,11 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+GSAD_REPO_ROOT="$REPO_ROOT"
+GSAD_COMPOSE_MODE=prod
+
+# shellcheck source=lib/compose.sh
+source "${SCRIPT_DIR}/lib/compose.sh"
 
 LINUX_USERNAME_PATTERN='^[a-z_][a-z0-9_-]{0,31}$'
 
@@ -71,12 +76,7 @@ compose_cmd() {
 
 cd "$REPO_ROOT"
 
-if [[ -f .env ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
-fi
+gsad_load_env
 
 if [[ -z "${ADMIN_EMAIL:-}" ]]; then
   die "ADMIN_EMAIL is required (see --help)"

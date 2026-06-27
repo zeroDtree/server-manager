@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 import requests
-from dotenv import load_dotenv
 from netbird_manage.utils.cli import netbird_connection_parent_parser
 from netbird_manage.utils.client import session_with_token
 from netbird_manage.vendor_api.users import existing_emails_from_users, fetch_users
@@ -13,7 +12,7 @@ from netbird_manage.vendor_api.users import existing_emails_from_users, fetch_us
 from account_prepare.export import export_email_snapshot
 from account_prepare.gsad_db import GsadDbError, fetch_gsad_emails
 from account_prepare.ledger import STATUS_COMPLETED, Ledger
-from account_prepare.paths import DEFAULT_DATA_DIR, DEFAULT_LEDGER, REPO_ROOT
+from account_prepare.paths import DEFAULT_DATA_DIR, DEFAULT_LEDGER, REPO_ROOT, load_repo_env
 from account_prepare.snapshot import PreImportSnapshotError, load_pre_import_snapshot, pre_import_snapshot_path
 
 
@@ -97,7 +96,7 @@ def run_reconcile(
 
 
 def main(argv: list[str] | None = None) -> int:
-    load_dotenv()
+    load_repo_env()
 
     parser = argparse.ArgumentParser(
         description="Sync registration ledger status from NetBird API and GSAD Postgres.",

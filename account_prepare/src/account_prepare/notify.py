@@ -5,8 +5,6 @@ import smtplib
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 from account_prepare.ledger import Ledger
 from account_prepare.mail import (
     DEFAULT_ERROR_LOG,
@@ -16,11 +14,11 @@ from account_prepare.mail import (
     send_notices,
     write_notice_files,
 )
-from account_prepare.paths import DEFAULT_DATA_DIR, DEFAULT_LEDGER, REPO_ROOT
+from account_prepare.paths import DEFAULT_DATA_DIR, DEFAULT_LEDGER, load_repo_env
 
 
 def load_dotenv_repo_root() -> None:
-    load_dotenv(REPO_ROOT / ".env")
+    load_repo_env()
 
 
 def ledger_row_to_notify(row) -> dict:

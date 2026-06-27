@@ -1,5 +1,6 @@
-# Local environment (template: .env.example)
+# Local environment (templates: .env.example, .env.secrets.example)
 .env
+.env.secrets
 .env.local
 .env.*.local
 

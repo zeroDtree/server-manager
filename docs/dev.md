@@ -6,7 +6,8 @@
 
 ```bash
 cp .env.example .env
-./utils/secret.sh
+./utils/secret.sh   # creates .env.secrets
+set -a; source .env; source .env.secrets; set +a
 docker compose --profile mock up --build
 cd gsad-frontend && npm install && npm run dev
 ```

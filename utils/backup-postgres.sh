@@ -13,7 +13,7 @@
 # Env: MAX_TOTAL_MB — max total backup dir size in MB (default: 500)
 # Env: COMPOSE_FILE — optional docker compose file override
 # Env: SPRING_PROFILES_ACTIVE — selects compose files when COMPOSE_FILE is unset
-# Env: DB_PASSWORD — from repo root .env (required)
+# Env: DB_PASSWORD — from repo root .env.secrets (required)
 # @help-end
 
 # @help-options-begin
@@ -37,6 +37,12 @@ for arg in "$@"; do
 done
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_DIR="${REPO_ROOT}/utils"
+GSAD_REPO_ROOT="$REPO_ROOT"
+GSAD_COMPOSE_MODE=prod
+
+# shellcheck source=lib/compose.sh
+source "${SCRIPT_DIR}/lib/compose.sh"
 OUT_DIR="${BACKUP_DIR:-$REPO_ROOT/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 MAX_TOTAL_MB="${MAX_TOTAL_MB:-500}"
@@ -60,15 +66,10 @@ compose_cmd() {
 
 cd "$REPO_ROOT"
 
-if [[ -f .env ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
-fi
+gsad_load_env
 
 if [[ -z "${DB_PASSWORD:-}" ]]; then
-  printf 'backup-postgres: ERROR: DB_PASSWORD is required in .env (see --help)\n' >&2
+  printf 'backup-postgres: ERROR: DB_PASSWORD is required in .env.secrets (see --help)\n' >&2
   exit 1
 fi
 

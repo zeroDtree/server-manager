@@ -97,32 +97,39 @@ git clone --recursive git@github.com:zeroDtree/server-manager.git
 # git submodule update --init --recursive
 ```
 
-2. 配置并启动 — 在运行 `secret.sh` 前于 `.env` 中设置 `GSAD_PUBLIC_HOST` 与 `ACME_EMAIL`：
+2. 配置 `.env` — 设置 `GSAD_PUBLIC_HOST` 与 `ACME_EMAIL`（生产 TLS）。运行 `./utils/secret.sh` 生成 `.env.secrets` 后部署：
 
 ```ini
-# .env — 在 ./utils/secret.sh 之前手动设置
+# .env — 部署前编辑
 GSAD_PUBLIC_HOST=gsad.example.com
 ACME_EMAIL=admin@example.com
 ```
 
 ```bash
 cp .env.example .env
+# 在 .env 中设置 GSAD_PUBLIC_HOST 与 ACME_EMAIL
 ./utils/secret.sh
-docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d --build
+./utils/preflight.sh
+./utils/deploy-prod.sh
 ```
 
+可选：同次创建首个管理员：`ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh`
+
+本地无 TLS 预检：`./utils/preflight.sh --local && ./utils/deploy-prod.sh --local`（见 [docs/local-prod.zh-CN.md](docs/local-prod.zh-CN.md)）。
+
 3. 将 `GSAD_PUBLIC_HOST` 的 DNS 指向本机；开放 80、443 端口。Traefik 终结 HTTPS（Let's Encrypt）。
-4. 等待 backend 健康：
+4. `deploy-prod.sh` 会等待 backend 健康（容器 healthcheck）。手动检查：
 
 ```bash
-curl -sS "https://${GSAD_PUBLIC_HOST}/actuator/health"
+docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod exec -T backend \
+  curl -sS http://localhost:8080/actuator/health
 ```
 
 ```json
 {"status":"UP"}
 ```
 
-5. [创建首个管理员](#first-admin)。
+5. 若跳过 admin 引导，见 [创建首个管理员](#first-admin)。
 6. **Admin → Import servers**（CSV）；[派生 agent PSK](docs/agent-psk.zh-CN.md)；在各 GPU 主机部署 [server-agent](server-agent/)。
 7. **Admin → Import users**。
 
@@ -244,28 +251,28 @@ server-manager/
 ├── account_prepare/    # Spreadsheet onboarding (SQLite ledger)
 ├── netbird-manage/     # NetBird CLI (submodule)
 ├── dockers/            # Compose, Dockerfiles, mock agents
-└── utils/              # Ops scripts (secrets, admin, PSK, backup)
+└── utils/              # 运维脚本（preflight、deploy-prod、密钥、admin、PSK、备份）
 ```
 
 ## 配置
 
-部署需在 `.env` 中设置 `GSAD_PUBLIC_HOST` 与 `ACME_EMAIL`。运行 [`secret.sh`](utils/secret.sh) 为其余项生成 $\ge 32$ 字符随机密钥。已设置的键不会被覆盖。完整说明见 [`.env.example`](.env.example)。
+部署需在 `.env` 中设置 `GSAD_PUBLIC_HOST` 与 `ACME_EMAIL`。运行 [`secret.sh`](utils/secret.sh) 生成 `.env.secrets`（$\ge 32$ 字符随机密钥）。已设置的键不会被覆盖。配置说明见 [`.env.example`](.env.example)；密钥键名见 [`.env.secrets.example`](.env.secrets.example)。
 
-| 变量                             | 必填?    | 默认           | 说明                                                                 |
-| -------------------------------- | -------- | -------------- | -------------------------------------------------------------------- |
-| `GSAD_PUBLIC_HOST`               | **必填** | —              | Traefik 主机名与 DNS                                                 |
-| `ACME_EMAIL`                     | **必填** | —              | Let's Encrypt TLS 证书注册邮箱                                       |
-| `SPRING_PROFILES_ACTIVE`         | **必填** | `dev`          | 配合 `compose.prod.yaml` 时为 `prod`                                 |
-| `CREDENTIALS_ENCRYPTION_KEY`     | **必填** | —              | SSH 凭据静态加密 AES 密钥（$\ge 32$ 字符）                            |
-| `AGENT_MASTER_SECRET`            | **必填** | —              | 仅 backend；经 [docs/agent-psk.zh-CN.md](docs/agent-psk.zh-CN.md) 派生 PSK |
-| `JWT_SECRET`                     | **必填** | —              | JWT 签名密钥（$\ge 32$ 字符）                                         |
-| `DB_PASSWORD` / `REDIS_PASSWORD` | **必填** | —              | 数据存储密码                                                         |
-| `BACKEND_AGENT_PORT`             | 可选     | `8080`         | Agent internal API 私网主机端口                                      |
-| `BACKEND_AGENT_BIND`             | 可选     | `127.0.0.1`    | 仅 loopback 或 RFC1918 内网 IP                                       |
-| `CORS_ALLOWED_ORIGINS`           | 可选     | 空             | UI 与 API 经 Traefik 同域时通常留空                                  |
+| 变量                             | 文件            | 必填?    | 默认           | 说明                                                                 |
+| -------------------------------- | --------------- | -------- | -------------- | -------------------------------------------------------------------- |
+| `GSAD_PUBLIC_HOST`               | `.env`          | **必填** | —              | Traefik 主机名与 DNS                                                 |
+| `ACME_EMAIL`                     | `.env`          | **必填** | —              | Let's Encrypt TLS 证书注册邮箱                                       |
+| `SPRING_PROFILES_ACTIVE`         | `.env`          | **必填** | `dev`          | 配合 `compose.prod.yaml` 时为 `prod`                                 |
+| `CREDENTIALS_ENCRYPTION_KEY`     | `.env.secrets`  | **必填** | —              | SSH 凭据静态加密 AES 密钥（$\ge 32$ 字符）                            |
+| `AGENT_MASTER_SECRET`            | `.env.secrets`  | **必填** | —              | 仅 backend；经 [docs/agent-psk.zh-CN.md](docs/agent-psk.zh-CN.md) 派生 PSK |
+| `JWT_SECRET`                     | `.env.secrets`  | **必填** | —              | JWT 签名密钥（$\ge 32$ 字符）                                         |
+| `DB_PASSWORD` / `REDIS_PASSWORD` | `.env.secrets`  | **必填** | —              | 数据存储密码                                                         |
+| `BACKEND_AGENT_PORT`             | `.env`          | 可选     | `8080`         | Agent internal API 私网主机端口                                      |
+| `BACKEND_AGENT_BIND`             | `.env`          | 可选     | `127.0.0.1`    | 仅 loopback 或 RFC1918 内网 IP                                       |
+| `CORS_ALLOWED_ORIGINS`           | `.env`          | 可选     | 空             | UI 与 API 经 Traefik 同域时通常留空                                  |
 
 > [!WARNING]
-> 勿使用 `.env.example` 占位值。运行 [`secret.sh`](utils/secret.sh) 或手动设置强随机值。生产环境禁用 Swagger；agent 在私网 HTTP 端口使用派生 PSK + `X-Agent-Server-Id` 认证。
+> 勿使用 `.env.secrets.example` 占位值。运行 [`secret.sh`](utils/secret.sh) 或手动设置强随机值。生产环境禁用 Swagger；agent 在私网 HTTP 端口使用派生 PSK + `X-Agent-Server-Id` 认证。
 
 ## 其他环境
 

@@ -99,32 +99,39 @@ git clone --recursive git@github.com:zeroDtree/server-manager.git
 # git submodule update --init --recursive
 ```
 
-2. Configure and start — set `GSAD_PUBLIC_HOST` and `ACME_EMAIL` in `.env` before `secret.sh`:
+2. Configure `.env` — set `GSAD_PUBLIC_HOST` and `ACME_EMAIL` (production TLS). Run `./utils/secret.sh` to create `.env.secrets`, then deploy:
 
 ```ini
-# .env — set manually before ./utils/secret.sh
+# .env — edit before deploy
 GSAD_PUBLIC_HOST=gsad.example.com
 ACME_EMAIL=admin@example.com
 ```
 
 ```bash
 cp .env.example .env
+# edit GSAD_PUBLIC_HOST and ACME_EMAIL in .env
 ./utils/secret.sh
-docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d --build
+./utils/preflight.sh
+./utils/deploy-prod.sh
 ```
 
+Optional first admin in the same run: `ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh`
+
+Local preflight without TLS: `./utils/preflight.sh --local && ./utils/deploy-prod.sh --local` (see [docs/local-prod.md](docs/local-prod.md)).
+
 3. Point DNS for `GSAD_PUBLIC_HOST` at this host; open ports 80 and 443. Traefik terminates HTTPS (Let's Encrypt).
-4. Wait for backend health:
+4. Backend health is verified by `deploy-prod.sh` (container healthcheck). To inspect manually:
 
 ```bash
-curl -sS "https://${GSAD_PUBLIC_HOST}/actuator/health"
+docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod exec -T backend \
+  curl -sS http://localhost:8080/actuator/health
 ```
 
 ```json
 {"status":"UP"}
 ```
 
-5. [Create the first admin](#first-admin).
+5. If you skipped admin bootstrap, [create the first admin](#first-admin).
 6. **Admin → Import servers** (CSV); [derive agent PSKs](docs/agent-psk.md); deploy [server-agent](server-agent/) on each GPU host.
 7. **Admin → Import users**.
 
@@ -246,28 +253,28 @@ server-manager/
 ├── account_prepare/    # Spreadsheet onboarding (SQLite ledger)
 ├── netbird-manage/     # NetBird CLI (submodule)
 ├── dockers/            # Compose, Dockerfiles, mock agents
-└── utils/              # Ops scripts (secrets, admin, PSK, backup)
+└── utils/              # Ops scripts (preflight, deploy-prod, secrets, admin, PSK, backup)
 ```
 
 ## Configuration
 
-Deploy requires `GSAD_PUBLIC_HOST` and `ACME_EMAIL` in `.env`. Run [`secret.sh`](utils/secret.sh) to generate random secrets ($\ge 32$ chars) for the rest. Keys you have already set are not overwritten. Full comments in [`.env.example`](.env.example).
+Deploy requires `GSAD_PUBLIC_HOST` and `ACME_EMAIL` in `.env`. Run [`secret.sh`](utils/secret.sh) to generate `.env.secrets` with random values ($\ge 32$ chars). Keys you have already set are not overwritten. Config comments in [`.env.example`](.env.example); secret keys in [`.env.secrets.example`](.env.secrets.example).
 
-| Variable                         | Required?    | Default     | Description                                                              |
-| -------------------------------- | ------------ | ----------- | ------------------------------------------------------------------------ |
-| `GSAD_PUBLIC_HOST`               | **Required** | —           | Traefik hostname and DNS entry                                           |
-| `ACME_EMAIL`                     | **Required** | —           | Let's Encrypt account email for TLS certificates                         |
-| `SPRING_PROFILES_ACTIVE`         | **Required** | `dev`       | Set `prod` with `compose.prod.yaml`                                      |
-| `CREDENTIALS_ENCRYPTION_KEY`     | **Required** | —           | AES key for SSH credentials at rest ($\ge 32$ chars)                     |
-| `AGENT_MASTER_SECRET`            | **Required** | —           | Backend-only root; derive PSK via [docs/agent-psk.md](docs/agent-psk.md) |
-| `JWT_SECRET`                     | **Required** | —           | JWT signing key ($\ge 32$ chars)                                         |
-| `DB_PASSWORD` / `REDIS_PASSWORD` | **Required** | —           | Data store passwords                                                     |
-| `BACKEND_AGENT_PORT`             | Optional     | `8080`      | Private host port for agent internal API                                 |
-| `BACKEND_AGENT_BIND`             | Optional     | `127.0.0.1` | Loopback or RFC1918 internal IP only                                     |
-| `CORS_ALLOWED_ORIGINS`           | Optional     | empty       | Usually empty when UI and API share host via Traefik                     |
+| Variable                         | File            | Required?    | Default     | Description                                                              |
+| -------------------------------- | --------------- | ------------ | ----------- | ------------------------------------------------------------------------ |
+| `GSAD_PUBLIC_HOST`               | `.env`          | **Required** | —           | Traefik hostname and DNS entry                                           |
+| `ACME_EMAIL`                     | `.env`          | **Required** | —           | Let's Encrypt account email for TLS certificates                         |
+| `SPRING_PROFILES_ACTIVE`         | `.env`          | **Required** | `dev`       | Set `prod` with `compose.prod.yaml`                                      |
+| `CREDENTIALS_ENCRYPTION_KEY`     | `.env.secrets`  | **Required** | —           | AES key for SSH credentials at rest ($\ge 32$ chars)                     |
+| `AGENT_MASTER_SECRET`            | `.env.secrets`  | **Required** | —           | Backend-only root; derive PSK via [docs/agent-psk.md](docs/agent-psk.md) |
+| `JWT_SECRET`                     | `.env.secrets`  | **Required** | —           | JWT signing key ($\ge 32$ chars)                                         |
+| `DB_PASSWORD` / `REDIS_PASSWORD` | `.env.secrets`  | **Required** | —           | Data store passwords                                                     |
+| `BACKEND_AGENT_PORT`             | `.env`          | Optional     | `8080`      | Private host port for agent internal API                                 |
+| `BACKEND_AGENT_BIND`             | `.env`          | Optional     | `127.0.0.1` | Loopback or RFC1918 internal IP only                                     |
+| `CORS_ALLOWED_ORIGINS`           | `.env`          | Optional     | empty       | Usually empty when UI and API share host via Traefik                     |
 
 > [!WARNING]
-> Do not use placeholder values from `.env.example`. Run [`secret.sh`](utils/secret.sh) or set strong random values manually. Swagger is disabled in production; agent auth uses derived PSK + `X-Agent-Server-Id` over HTTP on the private port.
+> Do not use placeholder values from `.env.secrets.example`. Run [`secret.sh`](utils/secret.sh) or set strong random values manually. Swagger is disabled in production; agent auth uses derived PSK + `X-Agent-Server-Id` over HTTP on the private port.
 
 ## Other setups
 
