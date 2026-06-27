@@ -97,7 +97,7 @@ git clone --recursive git@github.com:zeroDtree/server-manager.git
 # git submodule update --init --recursive
 ```
 
-2. 配置 `.env` — 设置 `GSAD_PUBLIC_HOST` 与 `ACME_EMAIL`（生产 TLS）。运行 `./utils/secret.sh` 生成 `.env.secrets` 后部署：
+2. 配置 `.env` 并部署（`deploy-prod.sh` 内部会运行 preflight 与 `secret.sh`）：
 
 ```ini
 # .env — 部署前编辑
@@ -108,28 +108,25 @@ ACME_EMAIL=admin@example.com
 ```bash
 cp .env.example .env
 # 在 .env 中设置 GSAD_PUBLIC_HOST 与 ACME_EMAIL
-./utils/secret.sh
-./utils/preflight.sh
-./utils/deploy-prod.sh
+ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh
 ```
 
-可选：同次创建首个管理员：`ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh`
+或先部署再创建管理员：`ADMIN_EMAIL=admin@example.com ./utils/create-prod-admin.sh`。
 
-本地无 TLS 预检：`./utils/preflight.sh --local && ./utils/deploy-prod.sh --local`（见 [docs/local-prod.zh-CN.md](docs/local-prod.zh-CN.md)）。
+本地 HTTP 栈（无 TLS）：在 `.env` 中设置 `GSAD_PUBLIC_HOST=localhost`，然后 `ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --local`（见 [docs/local-prod.zh-CN.md](docs/local-prod.zh-CN.md)）。
 
 3. 将 `GSAD_PUBLIC_HOST` 的 DNS 指向本机；开放 80、443 端口。Traefik 终结 HTTPS（Let's Encrypt）。
 4. `deploy-prod.sh` 会等待 backend 健康（容器 healthcheck）。手动检查：
 
 ```bash
-docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod exec -T backend \
-  curl -sS http://localhost:8080/actuator/health
+./utils/gsad-compose.sh exec -T backend curl -sS http://localhost:8080/actuator/health
 ```
 
 ```json
 {"status":"UP"}
 ```
 
-5. 若跳过 admin 引导，见 [创建首个管理员](#first-admin)。
+5. 使用步骤 2 的管理员登录（若未设置 `ADMIN_EMAIL`，见 [创建首个管理员](#first-admin)）。
 6. **Admin → Import servers**（CSV）；[派生 agent PSK](docs/agent-psk.zh-CN.md)；在各 GPU 主机部署 [server-agent](server-agent/)。
 7. **Admin → Import users**。
 
@@ -171,7 +168,7 @@ docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod exec 
 
 ### First admin
 
-Flyway 仅含 schema，**无预置管理员**。在 `backend` 与 `postgres` 健康后，用 [`create-prod-admin.sh`](utils/create-prod-admin.sh) 创建首个管理员。
+Flyway 仅含 schema，生产环境**无预置管理员**。**部署时设置 `ADMIN_EMAIL`**（步骤 2），或在栈健康后立即运行 [`create-prod-admin.sh`](utils/create-prod-admin.sh)。
 
 在仓库根目录：
 
@@ -232,7 +229,7 @@ curl -sS "https://${GSAD_PUBLIC_HOST}/actuator/health"
 
 ```bash
 git pull && git submodule update --init --recursive && \
-  docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d --build
+  ./utils/deploy-prod.sh --no-admin
 ```
 
 升级 GPU 主机 agent：`git pull && sudo ./deploy/install.sh`。
@@ -251,7 +248,7 @@ server-manager/
 ├── account_prepare/    # Spreadsheet onboarding (SQLite ledger)
 ├── netbird-manage/     # NetBird CLI (submodule)
 ├── dockers/            # Compose, Dockerfiles, mock agents
-└── utils/              # 运维脚本（preflight、deploy-prod、密钥、admin、PSK、备份）
+└── utils/              # 运维脚本（deploy-prod、gsad-compose、dev-up、密钥、admin、PSK、备份）
 ```
 
 ## 配置

@@ -99,7 +99,7 @@ git clone --recursive git@github.com:zeroDtree/server-manager.git
 # git submodule update --init --recursive
 ```
 
-2. Configure `.env` — set `GSAD_PUBLIC_HOST` and `ACME_EMAIL` (production TLS). Run `./utils/secret.sh` to create `.env.secrets`, then deploy:
+2. Configure `.env` and deploy (`deploy-prod.sh` runs preflight and `secret.sh` internally):
 
 ```ini
 # .env — edit before deploy
@@ -110,28 +110,25 @@ ACME_EMAIL=admin@example.com
 ```bash
 cp .env.example .env
 # edit GSAD_PUBLIC_HOST and ACME_EMAIL in .env
-./utils/secret.sh
-./utils/preflight.sh
-./utils/deploy-prod.sh
+ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh
 ```
 
-Optional first admin in the same run: `ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh`
+Or deploy first, then create the admin: `ADMIN_EMAIL=admin@example.com ./utils/create-prod-admin.sh`.
 
-Local preflight without TLS: `./utils/preflight.sh --local && ./utils/deploy-prod.sh --local` (see [docs/local-prod.md](docs/local-prod.md)).
+Local HTTP stack (no TLS): set `GSAD_PUBLIC_HOST=localhost` in `.env`, then `ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --local` (see [docs/local-prod.md](docs/local-prod.md)).
 
 3. Point DNS for `GSAD_PUBLIC_HOST` at this host; open ports 80 and 443. Traefik terminates HTTPS (Let's Encrypt).
 4. Backend health is verified by `deploy-prod.sh` (container healthcheck). To inspect manually:
 
 ```bash
-docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod exec -T backend \
-  curl -sS http://localhost:8080/actuator/health
+./utils/gsad-compose.sh exec -T backend curl -sS http://localhost:8080/actuator/health
 ```
 
 ```json
 {"status":"UP"}
 ```
 
-5. If you skipped admin bootstrap, [create the first admin](#first-admin).
+5. Log in with the admin from step 2 (or [create one](#first-admin) if you skipped `ADMIN_EMAIL`).
 6. **Admin → Import servers** (CSV); [derive agent PSKs](docs/agent-psk.md); deploy [server-agent](server-agent/) on each GPU host.
 7. **Admin → Import users**.
 
@@ -173,7 +170,7 @@ docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod exec 
 
 ### First admin
 
-Flyway is schema-only; there is **no seeded admin**. After `backend` and `postgres` are healthy, create the first admin with [`create-prod-admin.sh`](utils/create-prod-admin.sh).
+Flyway is schema-only; there is **no seeded admin** in production. **Set `ADMIN_EMAIL` on deploy** (step 2), or run [`create-prod-admin.sh`](utils/create-prod-admin.sh) immediately after the stack is healthy.
 
 From the repo root:
 
@@ -234,7 +231,7 @@ Upgrade central stack:
 
 ```bash
 git pull && git submodule update --init --recursive && \
-  docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d --build
+  ./utils/deploy-prod.sh --no-admin
 ```
 
 Upgrade agents on GPU hosts: `git pull && sudo ./deploy/install.sh`.
@@ -253,7 +250,7 @@ server-manager/
 ├── account_prepare/    # Spreadsheet onboarding (SQLite ledger)
 ├── netbird-manage/     # NetBird CLI (submodule)
 ├── dockers/            # Compose, Dockerfiles, mock agents
-└── utils/              # Ops scripts (preflight, deploy-prod, secrets, admin, PSK, backup)
+└── utils/              # Ops scripts (deploy-prod, gsad-compose, dev-up, secrets, admin, PSK, backup)
 ```
 
 ## Configuration

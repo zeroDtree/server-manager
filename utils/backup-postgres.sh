@@ -11,8 +11,6 @@
 # Env: BACKUP_DIR — output directory (default: <repo>/backups)
 # Env: RETENTION_DAYS — delete backups older than N days (default: 30)
 # Env: MAX_TOTAL_MB — max total backup dir size in MB (default: 500)
-# Env: COMPOSE_FILE — optional docker compose file override
-# Env: SPRING_PROFILES_ACTIVE — selects compose files when COMPOSE_FILE is unset
 # Env: DB_PASSWORD — from repo root .env.secrets (required)
 # @help-end
 
@@ -47,22 +45,6 @@ OUT_DIR="${BACKUP_DIR:-$REPO_ROOT/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 MAX_TOTAL_MB="${MAX_TOTAL_MB:-500}"
 MAX_TOTAL_BYTES=$((MAX_TOTAL_MB * 1024 * 1024))
-
-compose_cmd() {
-  local args=()
-  if [[ -n "${COMPOSE_FILE:-}" ]]; then
-    local f
-    read -r -a files <<< "${COMPOSE_FILE}"
-    for f in "${files[@]}"; do
-      args+=(-f "$f")
-    done
-  elif [[ "${SPRING_PROFILES_ACTIVE:-dev}" == "prod" ]]; then
-    args=(-f compose.yaml -f dockers/compose.prod.yaml)
-  else
-    args=(-f compose.yaml)
-  fi
-  docker compose "${args[@]}" "$@"
-}
 
 cd "$REPO_ROOT"
 
@@ -108,7 +90,7 @@ prune_by_total_size() {
   done
 }
 
-compose_cmd exec -T postgres \
+gsad_compose exec -T postgres \
   pg_dump -U gsad --no-owner --no-acl gsad | gzip -9 > "$OUT_FILE"
 
 gzip -t "$OUT_FILE"

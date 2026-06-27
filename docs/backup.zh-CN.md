@@ -25,7 +25,7 @@ sudo ./utils/install-backup-timer.sh
 修改 compose 日志选项后，需重建容器使限制生效：
 
 ```bash
-docker compose --profile prod up -d --force-recreate
+./utils/gsad-compose.sh up -d --force-recreate
 docker inspect gsad-backend-1 --format '{{.HostConfig.LogConfig}}'
 # expect: map[max-file:3 max-size:10m]
 ```
@@ -36,5 +36,5 @@ docker inspect gsad-backend-1 --format '{{.HostConfig.LogConfig}}'
 > 在维护窗口内恢复 — 先停 backend 或暂停写入。
 
 ```bash
-gunzip -c backups/gsad_YYYYMMDD_HHMMSS.sql.gz | docker compose exec -T postgres psql -U gsad gsad
+gunzip -c backups/gsad_YYYYMMDD_HHMMSS.sql.gz | ./utils/gsad-compose.sh exec -T postgres psql -U gsad gsad
 ```

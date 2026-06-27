@@ -8,7 +8,7 @@ Convert a registration spreadsheet into GSAD and NetBird import CSVs, then email
 
 - Repo root `.env` and `.env.secrets`: `GSAD_PUBLIC_URL` (full GSAD login URL, e.g. `https://gsad.example.com/`)
 - For prepare (when delta pending) and reconcile: `NETBIRD_TOKEN`, `NETBIRD_API_BASE` (if self-hosted)
-- GSAD Postgres reachable via `docker compose` (for pre-import snapshot and reconcile)
+- GSAD Postgres reachable via `./utils/gsad-compose.sh` (for pre-import snapshot and reconcile)
 - For email: `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, … (see below)
 - NetBird group **`client_group`** must exist before import
 - Spreadsheet at `data/account_prepare/registration.xlsx` (or pass `--input`)

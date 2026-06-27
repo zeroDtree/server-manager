@@ -11,8 +11,7 @@
 # Env: ADMIN_PASSWORD — plain password; prompts if unset (do not store in .env)
 # Env: ADMIN_LINUX_USERNAME — Linux username (default: gsadadmin)
 # Env: ADMIN_DISPLAY_NAME — display name (default: Admin)
-# Env: COMPOSE_FILE — optional docker compose file override
-# Env: SPRING_PROFILES_ACTIVE — selects compose files when COMPOSE_FILE is unset
+# Env: GSAD_COMPOSE_MODE — prod (default) or local (match deploy-prod.sh --local)
 #
 # Examples:
 #   ADMIN_EMAIL=admin@example.com ./utils/create-prod-admin.sh
@@ -45,7 +44,7 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 GSAD_REPO_ROOT="$REPO_ROOT"
-GSAD_COMPOSE_MODE=prod
+: "${GSAD_COMPOSE_MODE:=prod}"
 
 # shellcheck source=lib/compose.sh
 source "${SCRIPT_DIR}/lib/compose.sh"
@@ -56,22 +55,6 @@ escape_sql_literal() {
   local s="$1"
   s="${s//\'/\'\'}"
   printf "'%s'" "$s"
-}
-
-compose_cmd() {
-  local args=()
-  if [[ -n "${COMPOSE_FILE:-}" ]]; then
-    local f
-    read -r -a files <<< "${COMPOSE_FILE}"
-    for f in "${files[@]}"; do
-      args+=(-f "$f")
-    done
-  elif [[ "${SPRING_PROFILES_ACTIVE:-dev}" == "prod" ]]; then
-    args=(-f compose.yaml -f dockers/compose.prod.yaml)
-  else
-    args=(-f compose.yaml)
-  fi
-  docker compose "${args[@]}" "$@"
 }
 
 cd "$REPO_ROOT"
@@ -89,16 +72,12 @@ if [[ ! "$ADMIN_LINUX_USERNAME" =~ $LINUX_USERNAME_PATTERN ]]; then
   die "Invalid ADMIN_LINUX_USERNAME: ${ADMIN_LINUX_USERNAME} (must match ${LINUX_USERNAME_PATTERN})"
 fi
 
-if ! compose_cmd ps --status running postgres 2>/dev/null | grep -q postgres; then
+if ! gsad_compose ps --status running postgres 2>/dev/null | grep -q postgres; then
   die "postgres container is not running; start the stack first"
 fi
 
-admin_count="$(compose_cmd exec -T postgres psql -U gsad -d gsad -tAc \
-  "SELECT COUNT(*) FROM t_user WHERE roles ~ '(^|,)admin(,|$)';")"
-admin_count="$(echo "$admin_count" | tr -d '[:space:]')"
-
-if [[ "${admin_count:-0}" -gt 0 ]]; then
-  log "admin user already exists (${admin_count}); skipping"
+if gsad_has_admin; then
+  log "admin user already exists ($(gsad_admin_count)); skipping"
   exit 0
 fi
 
@@ -116,7 +95,7 @@ if [[ ${#ADMIN_PASSWORD} -lt 8 ]]; then
   die "Password must be at least 8 characters"
 fi
 
-email_exists="$(compose_cmd exec -T postgres psql -U gsad -d gsad -tAc \
+email_exists="$(gsad_compose exec -T postgres psql -U gsad -d gsad -tAc \
   "SELECT COUNT(*) FROM t_user WHERE lower(email) = lower($(escape_sql_literal "$ADMIN_EMAIL"));")"
 email_exists="$(echo "$email_exists" | tr -d '[:space:]')"
 
@@ -124,7 +103,7 @@ if [[ "${email_exists:-0}" -gt 0 ]]; then
   die "email already exists: ${ADMIN_EMAIL}"
 fi
 
-linux_exists="$(compose_cmd exec -T postgres psql -U gsad -d gsad -tAc \
+linux_exists="$(gsad_compose exec -T postgres psql -U gsad -d gsad -tAc \
   "SELECT COUNT(*) FROM t_user WHERE linux_username = $(escape_sql_literal "$ADMIN_LINUX_USERNAME");")"
 linux_exists="$(echo "$linux_exists" | tr -d '[:space:]')"
 
@@ -137,7 +116,7 @@ sql_pass="$(escape_sql_literal "$ADMIN_PASSWORD")"
 sql_linux="$(escape_sql_literal "$ADMIN_LINUX_USERNAME")"
 sql_display="$(escape_sql_literal "$ADMIN_DISPLAY_NAME")"
 
-compose_cmd exec -T postgres psql -U gsad -d gsad -v ON_ERROR_STOP=1 <<SQL
+gsad_compose exec -T postgres psql -U gsad -d gsad -v ON_ERROR_STOP=1 <<SQL
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 INSERT INTO t_user (email, password, roles, linux_username, status, display_name)
@@ -147,7 +126,7 @@ WHERE NOT EXISTS (
 );
 SQL
 
-inserted="$(compose_cmd exec -T postgres psql -U gsad -d gsad -tAc \
+inserted="$(gsad_compose exec -T postgres psql -U gsad -d gsad -tAc \
   "SELECT COUNT(*) FROM t_user WHERE lower(email) = lower(${sql_email});")"
 inserted="$(echo "$inserted" | tr -d '[:space:]')"
 

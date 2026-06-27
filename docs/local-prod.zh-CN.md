@@ -6,38 +6,23 @@
 
 ## 启动
 
+在 `.env` 中设置 `GSAD_PUBLIC_HOST=localhost`，然后部署：
+
 ```bash
-SPRING_PROFILES_ACTIVE=prod GSAD_PUBLIC_HOST=localhost docker compose \
-  -f compose.yaml \
-  -f dockers/compose.prod.yaml \
-  -f dockers/compose.prod-local.yaml \
-  --profile prod up -d --build
+ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --local
 ```
 
 打开 `http://localhost/`（UI）与 `http://localhost/api/*`（公开 API）。
 
-`backend` 与 `postgres` 健康后，创建首个管理员 — 见主 README 的 [First admin](../README.zh-CN.md#first-admin)。
+`deploy-prod.sh` 会运行 preflight、生成 `.env.secrets`、等待 backend 健康，并在设置 `ADMIN_EMAIL` 时创建首个管理员。其他方式见主 README [First admin](../README.zh-CN.md#first-admin)。
 
 ## Reset（清空数据库）
 
-从 dev/mock 切换或重新测试 bootstrap 时使用。须与启动时**相同**的 `-f` 与 `--profile prod`，否则 Compose 可能指向错误 project/volume：
+从 dev/mock 切换或重新测试 bootstrap 时使用：
 
 ```bash
-SPRING_PROFILES_ACTIVE=prod GSAD_PUBLIC_HOST=localhost docker compose \
-  -f compose.yaml \
-  -f dockers/compose.prod.yaml \
-  -f dockers/compose.prod-local.yaml \
-  --profile prod down -v
-```
-
-再拉起栈：
-
-```bash
-SPRING_PROFILES_ACTIVE=prod GSAD_PUBLIC_HOST=localhost docker compose \
-  -f compose.yaml \
-  -f dockers/compose.prod.yaml \
-  -f dockers/compose.prod-local.yaml \
-  --profile prod up -d --build
+./utils/gsad-compose.sh --local down -v
+ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --local
 ```
 
 **`down -v` 会删除 `postgres_data`**（及本 project 其他 named volume）。dev 种子管理员（`admin@gsad.local`）与 mock 服务器一并清除。

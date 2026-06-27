@@ -6,38 +6,23 @@ Run the production compose files on localhost without TLS — useful for validat
 
 ## Start
 
+Set `GSAD_PUBLIC_HOST=localhost` in `.env`, then deploy:
+
 ```bash
-SPRING_PROFILES_ACTIVE=prod GSAD_PUBLIC_HOST=localhost docker compose \
-  -f compose.yaml \
-  -f dockers/compose.prod.yaml \
-  -f dockers/compose.prod-local.yaml \
-  --profile prod up -d --build
+ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --local
 ```
 
 Open `http://localhost/` (UI) and `http://localhost/api/*` (public API).
 
-After `backend` and `postgres` are healthy, create the first admin — see [First admin](../README.md#first-admin) in the main README.
+`deploy-prod.sh` runs preflight, creates `.env.secrets`, waits for backend health, and creates the first admin when `ADMIN_EMAIL` is set. See [First admin](../README.md#first-admin) for alternatives.
 
 ## Reset (clean DB)
 
-Use when switching from dev/mock or re-testing bootstrap. Use the **same** `-f` files and `--profile prod` as start, or Compose may target the wrong project/volumes:
+Use when switching from dev/mock or re-testing bootstrap:
 
 ```bash
-SPRING_PROFILES_ACTIVE=prod GSAD_PUBLIC_HOST=localhost docker compose \
-  -f compose.yaml \
-  -f dockers/compose.prod.yaml \
-  -f dockers/compose.prod-local.yaml \
-  --profile prod down -v
-```
-
-Then bring the stack back:
-
-```bash
-SPRING_PROFILES_ACTIVE=prod GSAD_PUBLIC_HOST=localhost docker compose \
-  -f compose.yaml \
-  -f dockers/compose.prod.yaml \
-  -f dockers/compose.prod-local.yaml \
-  --profile prod up -d --build
+./utils/gsad-compose.sh --local down -v
+ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --local
 ```
 
 **`down -v` deletes `postgres_data`** (and other named volumes in this project). Dev seed admin (`admin@gsad.local`) and mock servers are removed.

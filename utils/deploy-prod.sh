@@ -4,11 +4,14 @@
 # Deploy GSAD production stack (HTTPS) or local-prod stack (HTTP on localhost).
 # Runs preflight, secret.sh, docker compose up, waits for backend health, optional first admin.
 #
+# First login requires an admin user: set ADMIN_EMAIL on deploy, or run create-prod-admin.sh
+# immediately after deploy.
+#
 # Usage:
 #   ./deploy-prod.sh
 #   ./deploy-prod.sh --local
 #
-# Env: ADMIN_EMAIL — create first admin after deploy (optional; prompts if password unset)
+# Env: ADMIN_EMAIL — create first admin after deploy (recommended)
 # Env: ADMIN_PASSWORD — forwarded to create-prod-admin.sh (never written to .env)
 # Env: GSAD_PUBLIC_HOST, ACME_EMAIL, BACKEND_AGENT_BIND — from repo-root .env; secrets from .env.secrets
 #
@@ -53,12 +56,19 @@ GSAD_COMPOSE_MODE=prod
 if [[ "$LOCAL_MODE" -eq 1 ]]; then
   GSAD_COMPOSE_MODE=local
 fi
+export GSAD_COMPOSE_MODE
 
 # shellcheck source=lib/compose.sh
 source "${SCRIPT_DIR}/lib/compose.sh"
 
 log() { printf 'deploy-prod: %s\n' "$*"; }
 die() { printf 'deploy-prod: ERROR: %s\n' "$*" >&2; exit 1; }
+
+notice_no_admin() {
+  printf '%s\n' \
+    'deploy-prod: NOTICE: no admin user — login will fail until you create one:' \
+    '  ADMIN_EMAIL=admin@example.com ./utils/create-prod-admin.sh'
+}
 
 wait_backend_healthy() {
   local max=120 interval=5 elapsed=0 health
@@ -108,19 +118,19 @@ gsad_compose "${up_args[@]}"
 
 log "waiting for backend health (up to 120s)"
 if ! wait_backend_healthy; then
-  die "backend did not become healthy — check: docker compose logs backend"
+  die "backend did not become healthy — check: ./utils/gsad-compose.sh logs backend"
 fi
 log "backend is healthy"
 
-if [[ "$DO_ADMIN" -eq 1 ]]; then
-  if [[ -z "${ADMIN_EMAIL:-}" ]]; then
-    log "skipping admin bootstrap — set ADMIN_EMAIL=admin@example.com to create the first admin"
-  else
-    log "creating first admin (idempotent)"
-    SPRING_PROFILES_ACTIVE=prod "${SCRIPT_DIR}/create-prod-admin.sh"
-  fi
-else
+if [[ "$DO_ADMIN" -eq 1 && -n "${ADMIN_EMAIL:-}" ]]; then
+  log "creating first admin (idempotent)"
+  SPRING_PROFILES_ACTIVE=prod "${SCRIPT_DIR}/create-prod-admin.sh"
+elif [[ "$DO_ADMIN" -eq 0 ]]; then
   log "skipping admin bootstrap (--no-admin)"
+fi
+
+if ! gsad_has_admin; then
+  notice_no_admin
 fi
 
 if [[ "$LOCAL_MODE" -eq 1 ]]; then

@@ -25,7 +25,7 @@ Check status: `systemctl status gsad-backup-postgres.timer` · View logs: `journ
 After changing compose logging options, recreate containers so limits apply:
 
 ```bash
-docker compose --profile prod up -d --force-recreate
+./utils/gsad-compose.sh up -d --force-recreate
 docker inspect gsad-backend-1 --format '{{.HostConfig.LogConfig}}'
 # expect: map[max-file:3 max-size:10m]
 ```
@@ -36,5 +36,5 @@ docker inspect gsad-backend-1 --format '{{.HostConfig.LogConfig}}'
 > Restore during a maintenance window — stop the backend or pause writes first.
 
 ```bash
-gunzip -c backups/gsad_YYYYMMDD_HHMMSS.sql.gz | docker compose exec -T postgres psql -U gsad gsad
+gunzip -c backups/gsad_YYYYMMDD_HHMMSS.sql.gz | ./utils/gsad-compose.sh exec -T postgres psql -U gsad gsad
 ```
