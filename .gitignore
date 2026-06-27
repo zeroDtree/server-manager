@@ -1,4 +1,4 @@
-# Local environment (template: dockers/.env.example)
+# Local environment (template: .env.example)
 .env
 .env.local
 .env.*.local

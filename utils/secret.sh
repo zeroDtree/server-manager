@@ -2,13 +2,13 @@
 
 # @help-begin
 # Generate random secrets in repo-root .env (≥32 chars, hex).
-# Creates .env from dockers/.env.example if missing. Skips keys already set to non-placeholder values.
+# Creates .env from .env.example if missing. Skips keys already set to non-placeholder values.
 #
 # Usage:
 #   ./secret.sh
 #
 # Example:
-#   cp dockers/.env.example .env && ./utils/secret.sh
+#   cp .env.example .env && ./utils/secret.sh
 # @help-end
 
 # @help-options-begin
@@ -36,7 +36,7 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-ENV_EXAMPLE="${REPO_ROOT}/dockers/.env.example"
+ENV_EXAMPLE="${REPO_ROOT}/.env.example"
 ENV_FILE="${REPO_ROOT}/.env"
 
 SECRET_KEYS=(
@@ -92,7 +92,7 @@ fi
 
 if [[ ! -f "$ENV_FILE" ]]; then
   cp "$ENV_EXAMPLE" "$ENV_FILE"
-  log "created .env from dockers/.env.example"
+  log "created .env from .env.example"
 fi
 
 command -v openssl >/dev/null 2>&1 || die "openssl is required"

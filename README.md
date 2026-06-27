@@ -52,7 +52,7 @@ git submodule update --init --recursive
 **Central stack** (one host, Traefik on `gsad_traefik` network):
 
 ```bash
-cp dockers/.env.example .env
+cp .env.example .env
 ./utils/secret.sh
 # Set GSAD_PUBLIC_HOST and ACME_EMAIL for prod
 # compose.prod.yaml forces SPRING_PROFILES_ACTIVE=prod on the backend; .env value is ignored there
@@ -228,7 +228,7 @@ gunzip -c backups/gsad_YYYYMMDD_HHMMSS.sql.gz | docker compose exec -T postgres 
 7. [Derive agent PSKs](#agent-psk-per-gpu-host) (batch script), **import servers** via Admin → 服务器导入, then deploy [server-agent](server-agent/) on each GPU host.
 8. Enable backup cron or systemd timer; test a restore periodically.
 
-**Security:** do not use placeholder secrets from [`dockers/.env.example`](dockers/.env.example); prod disables Swagger; agent auth uses derived PSK + `X-Agent-Server-Id` over HTTP on the private port.
+**Security:** do not use placeholder secrets from [`.env.example`](.env.example); prod disables Swagger; agent auth uses derived PSK + `X-Agent-Server-Id` over HTTP on the private port.
 
 **Operations:** backend health at `/actuator/health`; agent health at `:9091` (provisioner) and `:9092` (reporter). Upgrade central stack: `git pull && git submodule update --init --recursive && docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d --build`. Upgrade agents on GPU hosts: `git pull && sudo ./deploy/install.sh`.
 
@@ -250,7 +250,7 @@ Git submodules — run `git submodule update --init --recursive` after clone.
 
 ## Configuration
 
-Copy `dockers/.env.example` to `.env` at the repo root, then run [`secret.sh`](utils/secret.sh) to generate random secrets (≥32 chars). Keys you have already set are not overwritten.
+Copy `.env.example` to `.env`, then run [`secret.sh`](utils/secret.sh) to generate random secrets (≥32 chars). Keys you have already set are not overwritten.
 
 | Variable                         | Description                                                                                                                                    |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -265,7 +265,7 @@ Copy `dockers/.env.example` to `.env` at the repo root, then run [`secret.sh`](u
 | `DB_PASSWORD` / `REDIS_PASSWORD` | Data store passwords                                                                                                                           |
 | `CORS_ALLOWED_ORIGINS`           | Optional prod CORS origins (comma-separated); empty when UI and API share the same host via Traefik                                            |
 
-In `prod`, do not use placeholder values from `dockers/.env.example`; run [`secret.sh`](utils/secret.sh) or set strong random values manually.
+In `prod`, do not use placeholder values from `.env.example`; run [`secret.sh`](utils/secret.sh) or set strong random values manually.
 
 ## Tests
 
