@@ -64,6 +64,7 @@ flowchart TB
 ## 前置条件
 
 - Docker 与 Docker Compose
+- **生产 HTTPS：** 假定有一台具备公网 IP、可从互联网访问的服务器（即下文部署所在的本机）。将 `GSAD_PUBLIC_HOST` 的 DNS A/AAAA 记录指向该 IP；放行入站 TCP **80** 与 **443**（Traefik 终结 TLS 并通过 Let's Encrypt 获取证书）。
 
 ## 部署
 
@@ -93,11 +94,9 @@ ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh
 
 本地 HTTP 栈（无 TLS）：在 `.env` 中设置 `GSAD_PUBLIC_HOST=localhost`，然后 `ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --local`（见 [docs/local-prod.zh-CN.md](docs/local-prod.zh-CN.md)）。
 
-3. 将 `GSAD_PUBLIC_HOST` 的 DNS 指向本机；开放 80、443 端口。Traefik 终结 HTTPS（Let's Encrypt）。
-4. `deploy-prod.sh` 结束前会等待 backend 健康。
-5. 使用步骤 2 的管理员登录。
-6. **Admin → Import servers**（CSV）；[派生 agent PSK](docs/agent-psk.zh-CN.md)；在各 GPU 主机部署 [server-agent](server-agent/)。
-7. **Admin → Import users**。
+3. 使用步骤 2 的管理员登录。
+4. **Admin → Import servers**（CSV）；[派生 agent PSK](docs/agent-psk.zh-CN.md)；在各 GPU 主机部署 [server-agent](server-agent/)。
+5. **Admin → Import users**。
 
 > [!WARNING]
 > 将 `BACKEND_AGENT_PORT`（默认 `:8080`）限制为 GPU 主机 / VPN 网段 — 见 [docs/agent-network.zh-CN.md](docs/agent-network.zh-CN.md)。启用[备份](docs/backup.zh-CN.md)并定期测试恢复。

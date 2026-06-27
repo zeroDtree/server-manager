@@ -64,6 +64,7 @@ flowchart TB
 ## Prerequisites
 
 - Docker and Docker Compose
+- **Production HTTPS:** A server with a public IP reachable from the internet (this host, where you run the deploy steps below). Point DNS A/AAAA records for `GSAD_PUBLIC_HOST` at that address; allow inbound TCP **80** and **443** (Traefik terminates TLS and obtains Let's Encrypt certificates).
 
 ## Deploy
 
@@ -93,11 +94,9 @@ If you skipped `ADMIN_EMAIL`, create the admin after deploy: `ADMIN_EMAIL=admin@
 
 Local HTTP stack (no TLS): set `GSAD_PUBLIC_HOST=localhost` in `.env`, then `ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --local` (see [docs/local-prod.md](docs/local-prod.md)).
 
-3. Point DNS for `GSAD_PUBLIC_HOST` at this host; open ports 80 and 443. Traefik terminates HTTPS (Let's Encrypt).
-4. `deploy-prod.sh` waits for backend health before it finishes.
-5. Log in with the admin from step 2.
-6. **Admin → Import servers** (CSV); [derive agent PSKs](docs/agent-psk.md); deploy [server-agent](server-agent/) on each GPU host.
-7. **Admin → Import users**.
+3. Log in with the admin from step 2.
+4. **Admin → Import servers** (CSV); [derive agent PSKs](docs/agent-psk.md); deploy [server-agent](server-agent/) on each GPU host.
+5. **Admin → Import users**.
 
 > [!WARNING]
 > Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts / VPN CIDR only — see [docs/agent-network.md](docs/agent-network.md). Enable [backups](docs/backup.md) and test restore periodically.
