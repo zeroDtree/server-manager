@@ -39,24 +39,20 @@ flowchart TB
 
 - Docker and Docker Compose
 - Node.js (frontend dev only)
-- Clone with submodules:
+
+## Quick start
+
+- Set `GSAD_PUBLIC_HOST` and `ACME_EMAIL` for prod
+- DNS for `GSAD_PUBLIC_HOST` must point at this host; open ports 80 and 443
+
 
 ```bash
 git clone --recursive git@github.com:zeroDtree/server-manager.git
-# or, after a plain clone:
-git submodule update --init --recursive
-```
+# or, after a plain clone: 
+# git submodule update --init --recursive
 
-## Production
-
-**Central stack** (one host, Traefik on `gsad_traefik` network):
-
-```bash
 cp .env.example .env
 ./utils/secret.sh
-# Set GSAD_PUBLIC_HOST and ACME_EMAIL for prod
-# compose.prod.yaml forces SPRING_PROFILES_ACTIVE=prod on the backend; .env value is ignored there
-# DNS for GSAD_PUBLIC_HOST must point at this host; open ports 80 and 443
 docker compose -f compose.yaml -f dockers/compose.prod.yaml --profile prod up -d --build
 ```
 
@@ -89,10 +85,10 @@ Traefik terminates HTTPS (Let's Encrypt). Agent access uses a separate HTTP port
 
 ## Getting started
 
-| Mode            | Guide                                      |
-| --------------- | ------------------------------------------ |
-| Development     | [docs/dev.md](docs/dev.md)                 |
-| Local prod-like | [docs/local-prod.md](docs/local-prod.md)   |
+| Mode            | Guide                                    |
+| --------------- | ---------------------------------------- |
+| Development     | [docs/dev.md](docs/dev.md)               |
+| Local prod-like | [docs/local-prod.md](docs/local-prod.md) |
 
 ## Production operations
 
@@ -238,32 +234,32 @@ gunzip -c backups/gsad_YYYYMMDD_HHMMSS.sql.gz | docker compose exec -T postgres 
 
 Git submodules — run `git submodule update --init --recursive` after clone.
 
-| Path                            | Role                                                                                                               |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| [gsad-backend](gsad-backend/)   | REST API, Flyway, internal agent routes                                                                            |
-| [gsad-frontend](gsad-frontend/) | Vue UI                                                                                                             |
-| [server-agent](server-agent/)   | account-provisioner + gpu-server-report (systemd on GPU hosts)                                                     |
-| [netbird-manage](netbird-manage/) | NetBird CLI (`user-manage`, `policy-manage`) — submodule                                                         |
-| [account_prepare](account_prepare/) | Registration spreadsheet → GSAD/NetBird CSVs and credential email                                              |
-| [dockers](dockers/)             | Compose files, Dockerfiles, and dev mock agents (`dockers/mocks/`)                                                 |
-| [utils](utils/)                 | Repo-level ops scripts (`.env` secret bootstrap, prod admin, agent PSK derivation, DB backup, systemd units) |
+| Path                                | Role                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [gsad-backend](gsad-backend/)       | REST API, Flyway, internal agent routes                                                                      |
+| [gsad-frontend](gsad-frontend/)     | Vue UI                                                                                                       |
+| [server-agent](server-agent/)       | account-provisioner + gpu-server-report (systemd on GPU hosts)                                               |
+| [netbird-manage](netbird-manage/)   | NetBird CLI (`user-manage`, `policy-manage`) — submodule                                                     |
+| [account_prepare](account_prepare/) | Registration spreadsheet → GSAD/NetBird CSVs and credential email                                            |
+| [dockers](dockers/)                 | Compose files, Dockerfiles, and dev mock agents (`dockers/mocks/`)                                           |
+| [utils](utils/)                     | Repo-level ops scripts (`.env` secret bootstrap, prod admin, agent PSK derivation, DB backup, systemd units) |
 
 ## Configuration
 
 Copy `.env.example` to `.env`, then run [`secret.sh`](utils/secret.sh) to generate random secrets (≥32 chars). Keys you have already set are not overwritten.
 
-| Variable                         | Description                                                                                                                                    |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SPRING_PROFILES_ACTIVE`         | `dev` (default) or `prod`                                                                                                                      |
-| `GSAD_PUBLIC_HOST`               | Public hostname for Traefik (prod); use `localhost` for prod-local                                                                             |
-| `ACME_EMAIL`                     | Let's Encrypt email (prod HTTPS)                                                                                                               |
-| `BACKEND_AGENT_PORT`             | Host port for GPU agent internal API (default `8080`)                                                                                          |
-| `BACKEND_AGENT_BIND`             | Loopback or RFC1918 only in prod (default `127.0.0.1`; agents reach backend via VPN/SSH tunnel or same host)                                   |
-| `CREDENTIALS_ENCRYPTION_KEY`     | AES key for SSH credential columns at rest (≥32 chars; required in prod)                                                                       |
+| Variable                         | Description                                                                                                                                                                                                                       |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SPRING_PROFILES_ACTIVE`         | `dev` (default) or `prod`                                                                                                                                                                                                         |
+| `GSAD_PUBLIC_HOST`               | Public hostname for Traefik (prod); use `localhost` for prod-local                                                                                                                                                                |
+| `ACME_EMAIL`                     | Let's Encrypt email (prod HTTPS)                                                                                                                                                                                                  |
+| `BACKEND_AGENT_PORT`             | Host port for GPU agent internal API (default `8080`)                                                                                                                                                                             |
+| `BACKEND_AGENT_BIND`             | Loopback or RFC1918 only in prod (default `127.0.0.1`; agents reach backend via VPN/SSH tunnel or same host)                                                                                                                      |
+| `CREDENTIALS_ENCRYPTION_KEY`     | AES key for SSH credential columns at rest (≥32 chars; required in prod)                                                                                                                                                          |
 | `AGENT_MASTER_SECRET`            | Backend-only master secret (≥32 chars); used to derive per-host `AGENT_PSK` via [`derive-agent-psk.sh`](utils/derive-agent-psk.sh) or [`derive-agent-psk-batch.sh`](utils/derive-agent-psk-batch.sh) — never deploy to GPU agents |
-| `JWT_SECRET`                     | JWT signing key (≥32 chars in prod)                                                                                                            |
-| `DB_PASSWORD` / `REDIS_PASSWORD` | Data store passwords                                                                                                                           |
-| `CORS_ALLOWED_ORIGINS`           | Optional prod CORS origins (comma-separated); empty when UI and API share the same host via Traefik                                            |
+| `JWT_SECRET`                     | JWT signing key (≥32 chars in prod)                                                                                                                                                                                               |
+| `DB_PASSWORD` / `REDIS_PASSWORD` | Data store passwords                                                                                                                                                                                                              |
+| `CORS_ALLOWED_ORIGINS`           | Optional prod CORS origins (comma-separated); empty when UI and API share the same host via Traefik                                                                                                                               |
 
 In `prod`, do not use placeholder values from `.env.example`; run [`secret.sh`](utils/secret.sh) or set strong random values manually.
 
