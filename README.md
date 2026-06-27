@@ -17,9 +17,8 @@
 
 ## Quick Links
 
-| Production deploy       | Local tryout (no TLS)                    | UI and agent dev           | Student onboarding                                                      |
-| :---------------------- | :--------------------------------------- | :------------------------- | :---------------------------------------------------------------------- |
-| [Deploy guide](#deploy) | [docs/local-prod.md](docs/local-prod.md) | [docs/dev.md](docs/dev.md) | [Spreadsheet workflow](#account-preparation-spreadsheet--gsad--netbird) |
+| [🚀 Production Deploy](#deploy) | [💻 Local Tryout (No TLS)](docs/local-prod.md) | [🛠️ UI & Agent Dev](docs/dev.md) | [👥 Student Onboarding](#account-preparation-spreadsheet--gsad--netbird) |
+| :---: | :---: | :---: | :---: |
 
 ---
 
@@ -250,28 +249,18 @@ server-manager/
 └── utils/              # Ops scripts (secrets, admin, PSK, backup)
 ```
 
-| Path                                | Role                                                                                                          |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| [gsad-backend](gsad-backend/)       | REST API, Flyway, internal agent routes                                                                       |
-| [gsad-frontend](gsad-frontend/)     | Vue UI                                                                                                        |
-| [server-agent](server-agent/)       | account-provisioner + gpu-server-report (systemd on GPU hosts)                                                |
-| [netbird-manage](netbird-manage/)   | NetBird CLI (`user-manage`, `policy-manage`) — submodule                                                      |
-| [account_prepare](account_prepare/) | Registration spreadsheet → GSAD/NetBird CSVs and credential email                                             |
-| [dockers](dockers/)                 | Compose files, Dockerfiles, and dev mock agents (`dockers/mocks/`)                                            |
-| [utils](utils/)                     | Repo-level ops scripts (`.env` secret bootstrap, first admin, agent PSK derivation, DB backup, systemd units) |
-
 ## Configuration
 
-Deploy requires `GSAD_PUBLIC_HOST` and `ACME_EMAIL` in `.env`. Run [`secret.sh`](utils/secret.sh) to generate random secrets (≥32 chars) for the rest. Keys you have already set are not overwritten. Full comments in [`.env.example`](.env.example).
+Deploy requires `GSAD_PUBLIC_HOST` and `ACME_EMAIL` in `.env`. Run [`secret.sh`](utils/secret.sh) to generate random secrets ($\ge 32$ chars) for the rest. Keys you have already set are not overwritten. Full comments in [`.env.example`](.env.example).
 
 | Variable                         | Required?    | Default     | Description                                                              |
 | -------------------------------- | ------------ | ----------- | ------------------------------------------------------------------------ |
 | `GSAD_PUBLIC_HOST`               | **Required** | —           | Traefik hostname and DNS entry                                           |
 | `ACME_EMAIL`                     | **Required** | —           | Let's Encrypt account email for TLS certificates                         |
 | `SPRING_PROFILES_ACTIVE`         | **Required** | `dev`       | Set `prod` with `compose.prod.yaml`                                      |
-| `CREDENTIALS_ENCRYPTION_KEY`     | **Required** | —           | AES key for SSH credentials at rest (≥32 chars)                          |
+| `CREDENTIALS_ENCRYPTION_KEY`     | **Required** | —           | AES key for SSH credentials at rest ($\ge 32$ chars)                     |
 | `AGENT_MASTER_SECRET`            | **Required** | —           | Backend-only root; derive PSK via [docs/agent-psk.md](docs/agent-psk.md) |
-| `JWT_SECRET`                     | **Required** | —           | JWT signing key (≥32 chars)                                              |
+| `JWT_SECRET`                     | **Required** | —           | JWT signing key ($\ge 32$ chars)                                         |
 | `DB_PASSWORD` / `REDIS_PASSWORD` | **Required** | —           | Data store passwords                                                     |
 | `BACKEND_AGENT_PORT`             | Optional     | `8080`      | Private host port for agent internal API                                 |
 | `BACKEND_AGENT_BIND`             | Optional     | `127.0.0.1` | Loopback or RFC1918 internal IP only                                     |

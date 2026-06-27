@@ -17,9 +17,8 @@
 
 ## 快速通道
 
-| 生产部署 | 本地试用（无 TLS） | UI 与 agent 开发 | 学生 onboarding |
-| :--- | :--- | :--- | :--- |
-| [部署指南](#部署) | [docs/local-prod.zh-CN.md](docs/local-prod.zh-CN.md) | [docs/dev.zh-CN.md](docs/dev.zh-CN.md) | [表格流程](#account-preparation表格--gsad--netbird) |
+| [🚀 生产部署](#部署) | [💻 本地试用（无 TLS）](docs/local-prod.zh-CN.md) | [🛠️ UI 与 Agent 开发](docs/dev.zh-CN.md) | [👥 学生 Onboarding](#account-preparation表格--gsad--netbird) |
+| :---: | :---: | :---: | :---: |
 
 ---
 
@@ -248,28 +247,18 @@ server-manager/
 └── utils/              # Ops scripts (secrets, admin, PSK, backup)
 ```
 
-| 路径                                | 职责                                                                                     |
-| ----------------------------------- | ---------------------------------------------------------------------------------------- |
-| [gsad-backend](gsad-backend/)       | REST API、Flyway、internal agent 路由                                                    |
-| [gsad-frontend](gsad-frontend/)     | Vue UI                                                                                   |
-| [server-agent](server-agent/)       | account-provisioner + gpu-server-report（GPU 主机 systemd）                              |
-| [netbird-manage](netbird-manage/)   | NetBird CLI（`user-manage`、`policy-manage`）— 子模块                                    |
-| [account_prepare](account_prepare/) | 登记表格 → GSAD/NetBird CSV 与凭据邮件                                                   |
-| [dockers](dockers/)                 | Compose、Dockerfile、开发 mock agent（`dockers/mocks/`）                                 |
-| [utils](utils/)                     | 仓库级运维脚本（`.env` 密钥、`create-prod-admin`、agent PSK 派生、DB 备份、systemd 单元） |
-
 ## 配置
 
-部署需在 `.env` 中设置 `GSAD_PUBLIC_HOST` 与 `ACME_EMAIL`。运行 [`secret.sh`](utils/secret.sh) 为其余项生成 ≥32 字符随机密钥。已设置的键不会被覆盖。完整说明见 [`.env.example`](.env.example)。
+部署需在 `.env` 中设置 `GSAD_PUBLIC_HOST` 与 `ACME_EMAIL`。运行 [`secret.sh`](utils/secret.sh) 为其余项生成 $\ge 32$ 字符随机密钥。已设置的键不会被覆盖。完整说明见 [`.env.example`](.env.example)。
 
 | 变量                             | 必填?    | 默认           | 说明                                                                 |
 | -------------------------------- | -------- | -------------- | -------------------------------------------------------------------- |
 | `GSAD_PUBLIC_HOST`               | **必填** | —              | Traefik 主机名与 DNS                                                 |
 | `ACME_EMAIL`                     | **必填** | —              | Let's Encrypt TLS 证书注册邮箱                                       |
 | `SPRING_PROFILES_ACTIVE`         | **必填** | `dev`          | 配合 `compose.prod.yaml` 时为 `prod`                                 |
-| `CREDENTIALS_ENCRYPTION_KEY`     | **必填** | —              | SSH 凭据静态加密 AES 密钥（≥32 字符）                                |
+| `CREDENTIALS_ENCRYPTION_KEY`     | **必填** | —              | SSH 凭据静态加密 AES 密钥（$\ge 32$ 字符）                            |
 | `AGENT_MASTER_SECRET`            | **必填** | —              | 仅 backend；经 [docs/agent-psk.zh-CN.md](docs/agent-psk.zh-CN.md) 派生 PSK |
-| `JWT_SECRET`                     | **必填** | —              | JWT 签名密钥（≥32 字符）                                             |
+| `JWT_SECRET`                     | **必填** | —              | JWT 签名密钥（$\ge 32$ 字符）                                         |
 | `DB_PASSWORD` / `REDIS_PASSWORD` | **必填** | —              | 数据存储密码                                                         |
 | `BACKEND_AGENT_PORT`             | 可选     | `8080`         | Agent internal API 私网主机端口                                      |
 | `BACKEND_AGENT_BIND`             | 可选     | `127.0.0.1`    | 仅 loopback 或 RFC1918 内网 IP                                       |
