@@ -109,7 +109,12 @@ git pull && git submodule update --init --recursive && \
   ./utils/deploy-prod.sh --no-admin
 ```
 
-升级 GPU 主机 agent：`git pull && sudo ./deploy/install.sh`（[server-agent/README.md](server-agent/README.md)）。
+升级 GPU 主机 agent（[server-agent/README.md](server-agent/README.md)）：
+
+```bash
+# 在每台 GPU 主机的 server-agent 克隆目录内执行：
+git pull && git submodule update --init --recursive && sudo ./deploy/install.sh
+```
 
 ## 配置
 

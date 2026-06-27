@@ -109,7 +109,12 @@ git pull && git submodule update --init --recursive && \
   ./utils/deploy-prod.sh --no-admin
 ```
 
-Upgrade agents on GPU hosts: `git pull && sudo ./deploy/install.sh` ([server-agent/README.md](server-agent/README.md)).
+Upgrade agents on GPU hosts ([server-agent/README.md](server-agent/README.md)):
+
+```bash
+# On each GPU host, inside the server-agent clone:
+git pull && git submodule update --init --recursive && sudo ./deploy/install.sh
+```
 
 ## Configuration
 

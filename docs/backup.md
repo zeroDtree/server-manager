@@ -26,7 +26,8 @@ After changing compose logging options, recreate containers so limits apply:
 
 ```bash
 ./utils/gsad-compose.sh up -d --force-recreate
-docker inspect gsad-backend-1 --format '{{.HostConfig.LogConfig}}'
+docker inspect "$(./utils/gsad-compose.sh ps -q backend | head -1)" \
+  --format '{{.HostConfig.LogConfig}}'
 # expect: map[max-file:3 max-size:10m]
 ```
 

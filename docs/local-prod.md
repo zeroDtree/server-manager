@@ -14,7 +14,7 @@ ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --local
 
 Open `http://localhost/` (UI) and `http://localhost/api/*` (public API).
 
-`deploy-prod.sh` runs preflight, creates `.env.secrets`, waits for backend health, and creates the first admin when `ADMIN_EMAIL` is set. See [First admin](../README.md#first-admin) for alternatives.
+`deploy-prod.sh` runs preflight, creates `.env.secrets`, waits for backend health, and creates the first admin when `ADMIN_EMAIL` is set.
 
 ## Reset (clean DB)
 

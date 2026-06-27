@@ -26,4 +26,4 @@
 > [!IMPORTANT]
 > 在**仅 backend** 使用足够长的随机 `AGENT_MASTER_SECRET`；backend 拒绝默认值。每台 GPU 主机派生 `AGENT_PSK` — 见 [Agent PSK (per GPU host)](agent-psk.zh-CN.md)。切勿将 `AGENT_MASTER_SECRET` 部署到 GPU 主机。
 
-**Agent 配置：** `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080` — 见 [server-agent/README.md](../server-agent/README.md)。
+**Agent 配置：** `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080`

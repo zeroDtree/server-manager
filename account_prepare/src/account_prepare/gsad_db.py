@@ -11,25 +11,26 @@ class GsadDbError(RuntimeError):
     pass
 
 
-def compose_args() -> list[str]:
-    compose_file = os.environ.get("COMPOSE_FILE", "").strip()
-    if compose_file:
-        args: list[str] = []
-        for f in compose_file.split():
-            args.extend(["-f", f])
-        return args
-    if os.environ.get("SPRING_PROFILES_ACTIVE", "dev").strip() == "prod":
-        return ["-f", "compose.yaml", "-f", "dockers/compose.prod.yaml"]
-    return ["-f", "compose.yaml"]
+def _gsad_compose_argv(repo_root: Path, *compose_args: str) -> list[str]:
+    script = repo_root / "utils" / "gsad-compose.sh"
+    mode = os.environ.get("GSAD_COMPOSE_MODE", "prod").strip()
+    cmd = [str(script)]
+    if mode == "local":
+        cmd.append("--local")
+    elif mode == "dev":
+        cmd.append("--dev")
+    elif mode != "prod":
+        raise GsadDbError(
+            f"unknown GSAD_COMPOSE_MODE={mode!r} (use prod, local, or dev)"
+        )
+    cmd.extend(compose_args)
+    return cmd
 
 
 def fetch_gsad_emails(*, repo_root: Path | None = None) -> set[str]:
     root = repo_root or REPO_ROOT
-    args = compose_args()
-    cmd = [
-        "docker",
-        "compose",
-        *args,
+    cmd = _gsad_compose_argv(
+        root,
         "exec",
         "-T",
         "postgres",
@@ -40,7 +41,7 @@ def fetch_gsad_emails(*, repo_root: Path | None = None) -> set[str]:
         "gsad",
         "-tAc",
         "SELECT lower(email) FROM t_user WHERE email IS NOT NULL AND trim(email) <> '';",
-    ]
+    )
     try:
         result = subprocess.run(
             cmd,
@@ -50,7 +51,7 @@ def fetch_gsad_emails(*, repo_root: Path | None = None) -> set[str]:
             check=False,
         )
     except OSError as e:
-        raise GsadDbError(f"failed to run docker compose: {e}") from e
+        raise GsadDbError(f"failed to run gsad-compose.sh: {e}") from e
 
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "").strip()

@@ -14,7 +14,7 @@ ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --local
 
 打开 `http://localhost/`（UI）与 `http://localhost/api/*`（公开 API）。
 
-`deploy-prod.sh` 会运行 preflight、生成 `.env.secrets`、等待 backend 健康，并在设置 `ADMIN_EMAIL` 时创建首个管理员。其他方式见主 README [First admin](../README.zh-CN.md#first-admin)。
+`deploy-prod.sh` 会运行 preflight、生成 `.env.secrets`、等待 backend 健康，并在设置 `ADMIN_EMAIL` 时创建首个管理员。
 
 ## Reset（清空数据库）
 

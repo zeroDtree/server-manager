@@ -32,4 +32,4 @@ Upload the same CSV via **Admin → Import servers** (`server_id` required; `age
 
 Paste the hex into the agent's `AGENT_PSK` in [`server-agent/deploy/env/common.env`](../server-agent/deploy/env/common.env).
 
-Set `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080` on each agent — see [Agent access & security](../README.md#agent-access--security) and [server-agent/README.md](../server-agent/README.md).
+Set `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080` on each agent — see [Agent network and security](agent-network.md).

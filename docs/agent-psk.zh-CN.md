@@ -32,4 +32,4 @@ chmod 600 agents-with-psk.csv
 
 将 hex 写入 agent 的 `AGENT_PSK`（[`server-agent/deploy/env/common.env`](../server-agent/deploy/env/common.env)）。
 
-每台 agent 设置 `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080` — 见 [Agent access & security](../README.zh-CN.md#agent-access--security) 与 [server-agent/README.md](../server-agent/README.md)。
+每台 agent 设置 `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080` — 见 [Agent 网络与安全](agent-network.zh-CN.md)。
