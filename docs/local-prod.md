@@ -14,7 +14,7 @@ SPRING_PROFILES_ACTIVE=prod GSAD_PUBLIC_HOST=localhost docker compose \
 
 Open `http://localhost/` (UI) and `http://localhost/api/*` (public API).
 
-After `backend` and `postgres` are healthy, create the first admin — see [First admin (prod bootstrap)](../README.md#first-admin-prod-bootstrap) in the main README.
+After `backend` and `postgres` are healthy, create the first admin — see [First admin](../README.md#first-admin) in the main README.
 
 ## Reset (clean DB)
 
