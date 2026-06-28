@@ -92,6 +92,8 @@ If you skipped `ADMIN_EMAIL`, create the admin after deploy: `ADMIN_EMAIL=admin@
 
 Local HTTP stack (no TLS): set `GSAD_PUBLIC_HOST=localhost` in `.env`, then `ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --local` (see [docs/local-prod.md](docs/local-prod.md)).
 
+**Existing edge Traefik** (e.g. NetBird on 80/443): set `TRAEFIK_EXTERNAL_NETWORK` in `.env`, then `ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --external` (see [docs/external-traefik.md](docs/external-traefik.md)).
+
 3. Log in with the admin from step 2.
 4. **Admin → Import servers** (CSV); [derive agent PSKs](docs/agent-psk.md); deploy [server-agent](server-agent/) on each GPU host.
 5. **Admin → Import users**.
@@ -123,10 +125,12 @@ Set `GSAD_PUBLIC_HOST` and `ACME_EMAIL` in `.env`. `deploy-prod.sh` runs [`secre
 | -------------------------------- | ---------------------------------------- |
 | Development (Vite + mock agents) | [docs/dev.md](docs/dev.md)               |
 | Local stack without TLS          | [docs/local-prod.md](docs/local-prod.md) |
+| External edge Traefik            | [docs/external-traefik.md](docs/external-traefik.md) |
 
 ## Further reading
 
 - [docs/agent-network.md](docs/agent-network.md) — agent HTTP access and firewall rules
+- [docs/external-traefik.md](docs/external-traefik.md) — reuse an existing edge Traefik (NetBird, etc.)
 - [docs/agent-psk.md](docs/agent-psk.md) — per-GPU host PSK derivation
 - [docs/backup.md](docs/backup.md) — backup, restore, and log rotation
 - [account_prepare/README.md](account_prepare/README.md) — spreadsheet onboarding workflow

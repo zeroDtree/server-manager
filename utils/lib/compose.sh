@@ -1,7 +1,7 @@
-# Shared Docker Compose helpers for GSAD stacks (prod, local-prod, dev).
+# Shared Docker Compose helpers for GSAD stacks (prod, local-prod, external, dev).
 # Source from utils/*.sh — set GSAD_REPO_ROOT and GSAD_COMPOSE_MODE before calling gsad_compose.
 #
-# GSAD_COMPOSE_MODE: prod (default) | local | dev
+# GSAD_COMPOSE_MODE: prod (default) | local | external | dev
 
 : "${GSAD_COMPOSE_MODE:=prod}"
 
@@ -12,11 +12,9 @@ fi
 
 _gsad_compose_file_args() {
   GSAD_COMPOSE_FILE_ARGS=()
-  GSAD_COMPOSE_PROFILE=
 
   case "${GSAD_COMPOSE_MODE}" in
     dev)
-      GSAD_COMPOSE_PROFILE=mock
       ;;
     local)
       GSAD_COMPOSE_FILE_ARGS=(
@@ -24,19 +22,40 @@ _gsad_compose_file_args() {
         -f "${GSAD_REPO_ROOT}/dockers/compose.prod.yaml"
         -f "${GSAD_REPO_ROOT}/dockers/compose.prod-local.yaml"
       )
-      GSAD_COMPOSE_PROFILE=prod
+      ;;
+    external)
+      GSAD_COMPOSE_FILE_ARGS=(
+        -f "${GSAD_REPO_ROOT}/compose.yaml"
+        -f "${GSAD_REPO_ROOT}/dockers/compose.prod.yaml"
+        -f "${GSAD_REPO_ROOT}/dockers/compose.edge-external.yaml"
+      )
       ;;
     prod)
       GSAD_COMPOSE_FILE_ARGS=(
         -f "${GSAD_REPO_ROOT}/compose.yaml"
         -f "${GSAD_REPO_ROOT}/dockers/compose.prod.yaml"
       )
-      GSAD_COMPOSE_PROFILE=prod
       ;;
     *)
-      printf 'compose: ERROR: unknown GSAD_COMPOSE_MODE=%s (use prod, local, or dev)\n' \
+      printf 'compose: ERROR: unknown GSAD_COMPOSE_MODE=%s (use prod, local, external, or dev)\n' \
         "${GSAD_COMPOSE_MODE}" >&2
       return 1 2>/dev/null || exit 1
+      ;;
+  esac
+}
+
+_gsad_compose_profile_args() {
+  GSAD_COMPOSE_PROFILE_ARGS=()
+
+  case "${GSAD_COMPOSE_MODE}" in
+    dev)
+      GSAD_COMPOSE_PROFILE_ARGS=(--profile mock)
+      ;;
+    external)
+      GSAD_COMPOSE_PROFILE_ARGS=(--profile prod)
+      ;;
+    prod|local)
+      GSAD_COMPOSE_PROFILE_ARGS=(--profile prod --profile bundled-edge)
       ;;
   esac
 }
@@ -57,10 +76,11 @@ gsad_load_env() {
 gsad_compose() {
   gsad_load_env
   _gsad_compose_file_args
+  _gsad_compose_profile_args
   if ((${#GSAD_COMPOSE_FILE_ARGS[@]} > 0)); then
-    docker compose "${GSAD_COMPOSE_FILE_ARGS[@]}" --profile "${GSAD_COMPOSE_PROFILE}" "$@"
+    docker compose "${GSAD_COMPOSE_FILE_ARGS[@]}" "${GSAD_COMPOSE_PROFILE_ARGS[@]}" "$@"
   else
-    docker compose --profile "${GSAD_COMPOSE_PROFILE}" "$@"
+    docker compose "${GSAD_COMPOSE_PROFILE_ARGS[@]}" "$@"
   fi
 }
 

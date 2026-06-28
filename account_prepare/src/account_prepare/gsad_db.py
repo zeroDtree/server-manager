@@ -17,11 +17,13 @@ def _gsad_compose_argv(repo_root: Path, *compose_args: str) -> list[str]:
     cmd = [str(script)]
     if mode == "local":
         cmd.append("--local")
+    elif mode == "external":
+        cmd.append("--external")
     elif mode == "dev":
         cmd.append("--dev")
     elif mode != "prod":
         raise GsadDbError(
-            f"unknown GSAD_COMPOSE_MODE={mode!r} (use prod, local, or dev)"
+            f"unknown GSAD_COMPOSE_MODE={mode!r} (use prod, local, external, or dev)"
         )
     cmd.extend(compose_args)
     return cmd

@@ -24,3 +24,7 @@ ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --local
 ```
 
 **`down -v` deletes `postgres_data`** (and other named volumes in this project). Dev seed admin (`admin@gsad.local`) and mock servers are removed.
+
+## Host with existing edge Traefik
+
+`--local` starts bundled Traefik on port **80** and conflicts with NetBird or other edge Traefik on the same host. Use [External edge Traefik](external-traefik.md) (`deploy-prod.sh --external`) instead.

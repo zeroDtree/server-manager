@@ -25,3 +25,5 @@
 > Use a long random `AGENT_MASTER_SECRET` on the **backend only**; the backend rejects the default value. Per GPU host, derive `AGENT_PSK` — see [Agent PSK (per GPU host)](agent-psk.md). Never put `AGENT_MASTER_SECRET` on GPU hosts.
 
 **Agent config:** `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080`
+
+Central host already running edge Traefik (NetBird, etc.)? Use [External edge Traefik](external-traefik.md) instead of GSAD bundled Traefik.

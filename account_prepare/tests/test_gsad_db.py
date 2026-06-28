@@ -34,6 +34,14 @@ def test_gsad_compose_argv_dev(
     assert argv == [str(tmp_path / "utils" / "gsad-compose.sh"), "--dev", "ps"]
 
 
+def test_gsad_compose_argv_external(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GSAD_COMPOSE_MODE", "external")
+    argv = _gsad_compose_argv(tmp_path, "ps")
+    assert argv == [str(tmp_path / "utils" / "gsad-compose.sh"), "--external", "ps"]
+
+
 def test_gsad_compose_argv_invalid_mode(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

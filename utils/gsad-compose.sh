@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # @help-begin
-# Run docker compose with repo env, compose files, and profile for prod, local-prod, or dev.
+# Run docker compose with repo env, compose files, and profile for prod, local-prod, external, or dev.
 #
 # Usage:
 #   ./gsad-compose.sh [options] [compose args...]
@@ -9,12 +9,14 @@
 # Examples:
 #   ./gsad-compose.sh ps
 #   ./gsad-compose.sh --local down -v
+#   ./gsad-compose.sh --external ps
 #   ./gsad-compose.sh --dev logs -f backend
 #   ./gsad-compose.sh exec -T backend curl -sS http://localhost:8080/actuator/health
 # @help-end
 
 # @help-options-begin
 #   --local                 local-prod HTTP stack (localhost)
+#   --external              prod stack using an existing edge Traefik
 #   --dev                   dev stack (mock profile + compose.override)
 #   -h, --help              show help
 # @help-options-end
@@ -36,6 +38,7 @@ compose_args=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --local) GSAD_COMPOSE_MODE=local; shift ;;
+    --external) GSAD_COMPOSE_MODE=external; shift ;;
     --dev) GSAD_COMPOSE_MODE=dev; shift ;;
     -h|--help) usage ;;
     --) shift; compose_args+=("$@"); break ;;

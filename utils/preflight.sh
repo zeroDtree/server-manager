@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
 # @help-begin
-# Pre-deploy checks for GSAD production or local-prod Docker stacks.
+# Pre-deploy checks for GSAD production, external Traefik, or local-prod Docker stacks.
 # Run from the repo root before ./utils/deploy-prod.sh.
 #
 # Usage:
 #   ./preflight.sh
 #   ./preflight.sh --local
+#   ./preflight.sh --external
 #
 # Example:
 #   ./preflight.sh --strict
@@ -14,6 +15,7 @@
 
 # @help-options-begin
 #   --local                 validate local-prod stack (HTTP on localhost)
+#   --external              validate external edge Traefik stack
 #   --strict                treat warnings as errors
 #   -h, --help              show help
 # @help-options-end
@@ -21,6 +23,7 @@
 set -euo pipefail
 
 LOCAL_MODE=0
+EXTERNAL_MODE=0
 STRICT=0
 
 usage() {
@@ -33,17 +36,25 @@ usage() {
 for arg in "$@"; do
   case "$arg" in
     --local) LOCAL_MODE=1 ;;
+    --external) EXTERNAL_MODE=1 ;;
     --strict) STRICT=1 ;;
     -h|--help) usage ;;
     *) printf 'preflight: ERROR: unexpected argument: %s (see --help)\n' "$arg" >&2; exit 1 ;;
   esac
 done
 
+if [[ "$LOCAL_MODE" -eq 1 && "$EXTERNAL_MODE" -eq 1 ]]; then
+  printf 'preflight: ERROR: --local and --external are mutually exclusive\n' >&2
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GSAD_REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 GSAD_COMPOSE_MODE=prod
 if [[ "$LOCAL_MODE" -eq 1 ]]; then
   GSAD_COMPOSE_MODE=local
+elif [[ "$EXTERNAL_MODE" -eq 1 ]]; then
+  GSAD_COMPOSE_MODE=external
 fi
 
 # shellcheck source=lib/compose.sh
@@ -116,7 +127,8 @@ if [[ -f "$ENV_FILE" ]]; then
   fi
 else
   _gsad_compose_file_args
-  if ! docker compose "${GSAD_COMPOSE_FILE_ARGS[@]}" --env-file "$ENV_EXAMPLE" --profile prod config >/dev/null 2>&1; then
+  _gsad_compose_profile_args
+  if ! docker compose "${GSAD_COMPOSE_FILE_ARGS[@]}" "${GSAD_COMPOSE_PROFILE_ARGS[@]}" --env-file "$ENV_EXAMPLE" config >/dev/null 2>&1; then
     fail "docker compose config failed (check .env.example and compose files)"
   else
     ok "docker compose config valid (.env.example)"
@@ -145,6 +157,11 @@ if [[ "$LOCAL_MODE" -eq 1 ]]; then
   if [[ "$host" != "localhost" ]]; then
     warn "GSAD_PUBLIC_HOST is '${host}' — local-prod expects localhost"
   fi
+elif [[ "$EXTERNAL_MODE" -eq 1 ]]; then
+  traefik_net="${TRAEFIK_EXTERNAL_NETWORK:-$(get_env_value TRAEFIK_EXTERNAL_NETWORK "$check_file")}"
+  if [[ -z "${traefik_net// }" ]]; then
+    fail "TRAEFIK_EXTERNAL_NETWORK is required in .env for external Traefik (see docs/external-traefik.md)"
+  fi
 else
   acme="${ACME_EMAIL:-$(get_env_value ACME_EMAIL "$check_file")}"
   if [[ -z "${acme// }" ]]; then
@@ -153,14 +170,16 @@ else
 fi
 
 if [[ "$bind" == "127.0.0.1" ]]; then
-  warn "BACKEND_AGENT_BIND=127.0.0.1 — remote GPU agents need RFC1918 or NetBird bind (see README Agent access & security)"
+  warn "BACKEND_AGENT_BIND=127.0.0.1 — remote GPU agents need RFC1918 or NetBird bind (see docs/agent-network.md)"
 fi
 
-if port_in_use 80; then
-  warn "port 80 is already in use on this host"
-fi
-if [[ "$LOCAL_MODE" -eq 0 ]] && port_in_use 443; then
-  warn "port 443 is already in use on this host"
+if [[ "$EXTERNAL_MODE" -eq 0 ]]; then
+  if port_in_use 80; then
+    warn "port 80 is already in use on this host"
+  fi
+  if [[ "$LOCAL_MODE" -eq 0 ]] && port_in_use 443; then
+    warn "port 443 is already in use on this host"
+  fi
 fi
 
 if [[ -f "$ENV_FILE" && "$host" == "gsad.example.com" ]]; then

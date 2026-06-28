@@ -1,0 +1,40 @@
+# External edge Traefik: join an existing Docker-network Traefik (e.g. NetBird netbird-traefik).
+# Use with deploy-prod.sh --external; do not start the bundled-edge traefik profile.
+services:
+  backend:
+    networks: !override
+      - internal
+      - traefik_external
+    labels: !override
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_EXTERNAL_NETWORK:?Set TRAEFIK_EXTERNAL_NETWORK in .env}
+      - traefik.http.routers.gsad-block.rule=Host(`${GSAD_PUBLIC_HOST}`) && PathPrefix(`/api/internal`)
+      - traefik.http.routers.gsad-block.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+      - traefik.http.routers.gsad-block.tls=true
+      - traefik.http.routers.gsad-block.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}
+      - traefik.http.routers.gsad-block.priority=100
+      - traefik.http.routers.gsad-block.service=noop@internal
+      - traefik.http.routers.gsad-api.rule=Host(`${GSAD_PUBLIC_HOST}`) && PathPrefix(`/api`) && !PathPrefix(`/api/internal`)
+      - traefik.http.routers.gsad-api.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+      - traefik.http.routers.gsad-api.tls=true
+      - traefik.http.routers.gsad-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}
+      - traefik.http.routers.gsad-api.priority=10
+      - traefik.http.services.gsad-api.loadbalancer.server.port=8080
+
+  frontend:
+    networks: !override
+      - traefik_external
+    labels: !override
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_EXTERNAL_NETWORK:?Set TRAEFIK_EXTERNAL_NETWORK in .env}
+      - traefik.http.routers.gsad-ui.rule=Host(`${GSAD_PUBLIC_HOST}`)
+      - traefik.http.routers.gsad-ui.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+      - traefik.http.routers.gsad-ui.tls=true
+      - traefik.http.routers.gsad-ui.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}
+      - traefik.http.routers.gsad-ui.priority=1
+      - traefik.http.services.gsad-ui.loadbalancer.server.port=80
+
+networks:
+  traefik_external:
+    external: true
+    name: ${TRAEFIK_EXTERNAL_NETWORK:?Set TRAEFIK_EXTERNAL_NETWORK in .env}

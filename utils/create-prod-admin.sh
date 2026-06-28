@@ -11,14 +11,17 @@
 # Env: ADMIN_PASSWORD — plain password; prompts if unset (do not store in .env)
 # Env: ADMIN_LINUX_USERNAME — Linux username (default: gsadadmin)
 # Env: ADMIN_DISPLAY_NAME — display name (default: Admin)
-# Env: GSAD_COMPOSE_MODE — prod (default) or local (match deploy-prod.sh --local)
+# Env: GSAD_COMPOSE_MODE — prod (default), local, or external (match deploy-prod.sh flags)
 #
 # Examples:
 #   ADMIN_EMAIL=admin@example.com ./utils/create-prod-admin.sh
+#   ADMIN_EMAIL=admin@example.com ./utils/create-prod-admin.sh --external
 #   ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='secret' ./utils/create-prod-admin.sh
 # @help-end
 
 # @help-options-begin
+#   --local                 match deploy-prod.sh --local
+#   --external              match deploy-prod.sh --external
 #   -h, --help              show help
 # @help-options-end
 
@@ -36,6 +39,20 @@ usage() {
 
 for arg in "$@"; do
   case "$arg" in
+    --local)
+      if [[ "${GSAD_COMPOSE_MODE_SET:-}" == external ]]; then
+        die "--local and --external are mutually exclusive"
+      fi
+      GSAD_COMPOSE_MODE=local
+      GSAD_COMPOSE_MODE_SET=local
+      ;;
+    --external)
+      if [[ "${GSAD_COMPOSE_MODE_SET:-}" == local ]]; then
+        die "--local and --external are mutually exclusive"
+      fi
+      GSAD_COMPOSE_MODE=external
+      GSAD_COMPOSE_MODE_SET=external
+      ;;
     -h|--help) usage ;;
     *) die "Unexpected argument: $arg (see --help)" ;;
   esac

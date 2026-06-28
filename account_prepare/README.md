@@ -9,7 +9,7 @@ Convert a registration spreadsheet into GSAD and NetBird import CSVs, then email
 - Repo root `.env` and `.env.secrets`: `GSAD_PUBLIC_URL` (full GSAD login URL, e.g. `https://gsad.example.com/`)
 - For prepare (when delta pending) and reconcile: `NETBIRD_TOKEN`, `NETBIRD_API_BASE` (if self-hosted)
 - GSAD stack running; Postgres queried internally via `./utils/gsad-compose.sh exec ...`
-- **`GSAD_COMPOSE_MODE`** (optional, default **`prod`**): `prod` | `local` | `dev` — must match the running stack (`deploy-prod.sh`, `--local`, or `dev-up.sh`)
+- **`GSAD_COMPOSE_MODE`** (optional, default **`prod`**): `prod` | `local` | `external` | `dev` — must match the running stack (`deploy-prod.sh`, `--local`, `--external`, or `dev-up.sh`)
 - For email: `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, … (see below)
 - NetBird group **`client_group`** must exist before import
 - Spreadsheet at `data/account_prepare/registration.xlsx` (or pass `--input`)
@@ -104,7 +104,7 @@ Operator config in `.env`; stack secrets in `.env.secrets` (see repo root [`secr
 
 | Variable | Required for |
 |----------|----------------|
-| `GSAD_COMPOSE_MODE` | Stack mode for Postgres queries: `prod` (default), `local`, or `dev` |
+| `GSAD_COMPOSE_MODE` | Stack mode for Postgres queries: `prod` (default), `local`, `external`, or `dev` |
 | `NETBIRD_TOKEN` | `prepare-accounts` (when pending), `reconcile-accounts`, `prepare-accounts --reconcile` |
 | `NETBIRD_API_BASE` | Self-hosted NetBird (default: `https://api.netbird.io`) |
 | `GSAD_PUBLIC_URL` | `notify-accounts` |
