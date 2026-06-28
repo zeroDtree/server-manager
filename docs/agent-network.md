@@ -15,8 +15,16 @@
 
 ## Network requirements
 
-- Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts only — NetBird mesh CIDR, private LAN, or firewall allowlist.
-- Set `BACKEND_AGENT_BIND` to `127.0.0.1` or an RFC1918 address; startup rejects `0.0.0.0` and public IPs.
+- Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts only — VPN mesh CIDR, private LAN, or firewall allowlist.
+- Set `BACKEND_AGENT_BIND` to an address agents can reach on the central host.
+- Prod startup allows **loopback**, **RFC1918** (`10/8`, `172.16–31/12`, `192.168/16`), or an IP in **`BACKEND_AGENT_VPN_CIDRS`** (comma-separated CIDRs). Rejects `0.0.0.0` and public IPs.
+
+Example (NetBird overlay `100.67.0.0/16`):
+
+```ini
+BACKEND_AGENT_BIND=100.67.167.35
+BACKEND_AGENT_VPN_CIDRS=100.67.0.0/16
+```
 
 > [!WARNING]
 > Do not expose `:8080` to the public internet. HTTP carries agent credentials in cleartext.
@@ -24,6 +32,6 @@
 > [!IMPORTANT]
 > Use a long random `AGENT_MASTER_SECRET` on the **backend only**; the backend rejects the default value. Per GPU host, derive `AGENT_PSK` — see [Agent PSK (per GPU host)](agent-psk.md). Never put `AGENT_MASTER_SECRET` on GPU hosts.
 
-**Agent config:** `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080`
+**Agent config:** `REPORT_API_URL=http://<central-vpn-or-private-ip>:8080`
 
 Central host already running edge Traefik (NetBird, etc.)? Use [External edge Traefik](external-traefik.md) instead of GSAD bundled Traefik.

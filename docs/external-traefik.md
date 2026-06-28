@@ -17,7 +17,8 @@ Your edge Traefik must:
 
 ```ini
 GSAD_PUBLIC_HOST=gsad.example.com
-BACKEND_AGENT_BIND=10.206.0.8          # NetBird or private IP — not 127.0.0.1 for remote agents
+BACKEND_AGENT_BIND=100.67.167.35
+BACKEND_AGENT_VPN_CIDRS=100.67.0.0/16
 BACKEND_AGENT_PORT=8080
 
 TRAEFIK_EXTERNAL_NETWORK=netbird       # Docker network name

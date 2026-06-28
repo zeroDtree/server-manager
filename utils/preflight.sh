@@ -170,7 +170,14 @@ else
 fi
 
 if [[ "$bind" == "127.0.0.1" ]]; then
-  warn "BACKEND_AGENT_BIND=127.0.0.1 — remote GPU agents need RFC1918 or NetBird bind (see docs/agent-network.md)"
+  warn "BACKEND_AGENT_BIND=127.0.0.1 — remote GPU agents need a reachable private/VPN IP (see docs/agent-network.md)"
+fi
+
+if [[ "$LOCAL_MODE" -eq 0 ]]; then
+  vpn_cidrs="${BACKEND_AGENT_VPN_CIDRS:-$(get_env_value BACKEND_AGENT_VPN_CIDRS "$check_file")}"
+  if [[ "$bind" == 100.* && -z "${vpn_cidrs// }" ]]; then
+    warn "BACKEND_AGENT_BIND looks like a CGNAT/VPN IP — set BACKEND_AGENT_VPN_CIDRS (e.g. 100.67.0.0/16)"
+  fi
 fi
 
 if [[ "$EXTERNAL_MODE" -eq 0 ]]; then
