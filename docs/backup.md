@@ -1,7 +1,5 @@
 # Backup and restore
 
-**Languages:** [English](backup.md) · [简体中文](backup.zh-CN.md)
-
 DB backup script: [`utils/backup-postgres.sh`](../utils/backup-postgres.sh). Defaults: 30-day retention, 500 MB total cap under `<repo>/backups/`. Override with `BACKUP_DIR`, `RETENTION_DAYS`, `MAX_TOTAL_MB`.
 
 Container logs are rotated at 10 MB × 3 files per service (see [`dockers/compose.yaml`](../dockers/compose.yaml)). DB backups are capped as above.

@@ -1,7 +1,5 @@
 # Local prod-like stack (HTTP only)
 
-**Languages:** [English](local-prod.md) · [简体中文](local-prod.zh-CN.md)
-
 Run the production compose files on localhost without TLS — useful for validating images and routing before real DNS and Let's Encrypt.
 
 ## Start

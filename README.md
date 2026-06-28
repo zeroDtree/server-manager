@@ -1,9 +1,5 @@
 # GSAD — GPU Server Access Dashboard
 
-<p align="left">
-  <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a>
-</p>
-
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green.svg)](https://spring.io/projects/spring-boot)
 [![Vue](https://img.shields.io/badge/Vue-3.x-42b883.svg)](https://vuejs.org/)
@@ -78,15 +74,17 @@ git clone --recursive git@github.com:zeroDtree/server-manager.git
 
 2. Configure `.env` and deploy (`deploy-prod.sh` runs preflight and `secret.sh` internally):
 
+```bash
+cp .env.example .env
+```
+
 ```ini
-# .env — edit before deploy
+# edit GSAD_PUBLIC_HOST and ACME_EMAIL in .env
 GSAD_PUBLIC_HOST=gsad.example.com
 ACME_EMAIL=admin@example.com
 ```
 
 ```bash
-cp .env.example .env
-# edit GSAD_PUBLIC_HOST and ACME_EMAIL in .env
 ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh
 ```
 

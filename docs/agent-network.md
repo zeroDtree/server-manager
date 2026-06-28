@@ -1,7 +1,5 @@
 # Agent network and security
 
-**Languages:** [English](agent-network.md) · [简体中文](agent-network.zh-CN.md)
-
 ## Two entry paths
 
 | Path            | Audience                  | Protocol | Routes                                                 |

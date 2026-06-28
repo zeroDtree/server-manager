@@ -1,7 +1,5 @@
 # Registration fields
 
-**Languages:** [English](info.md) · [简体中文](info.zh-CN.md)
-
 Collect the following fields and save them as `data/account_prepare/registration.xlsx`. Headers must match [`account_prepare/registration_columns.yaml`](../account_prepare/registration_columns.yaml).
 
 | Header (spreadsheet) | Field key        | Description |

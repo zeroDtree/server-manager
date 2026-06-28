@@ -1,7 +1,5 @@
 # Agent PSK (per GPU host)
 
-**Languages:** [English](agent-psk.md) · [简体中文](agent-psk.zh-CN.md)
-
 Each GPU agent authenticates with a per-server HMAC derived from the backend-only `AGENT_MASTER_SECRET`. Run [`derive-agent-psk.sh`](../utils/derive-agent-psk.sh) on a trusted machine with a TTY (your laptop or the central host — **not** on GPU agents). The script prompts for the master secret twice; it is never read from env or argv.
 
 > [!IMPORTANT]
