@@ -10,3 +10,6 @@
 [submodule "netbird-manage"]
 	path = netbird-manage
 	url = git@github.com:zeroDtree/netbird-manage.git
+[submodule "data_collect"]
+	path = data_collect
+	url = git@github.com:zeroDtree/data_collect.git
