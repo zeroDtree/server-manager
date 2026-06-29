@@ -19,10 +19,10 @@
 - Set `BACKEND_AGENT_BIND` to an address agents can reach on the central host.
 - Prod startup allows **loopback**, **RFC1918** (`10/8`, `172.16–31/12`, `192.168/16`), or an IP in **`BACKEND_AGENT_VPN_CIDRS`** (comma-separated CIDRs). Rejects `0.0.0.0` and public IPs.
 
-Example (NetBird overlay `100.67.0.0/16`):
+Example (NetBird overlay `100.67.0.0/16` — replace with your central host VPN IP):
 
 ```ini
-BACKEND_AGENT_BIND=100.67.167.35
+BACKEND_AGENT_BIND=100.67.0.10
 BACKEND_AGENT_VPN_CIDRS=100.67.0.0/16
 ```
 
