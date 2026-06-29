@@ -100,11 +100,15 @@ flowchart TB
 > [!WARNING]
 > Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts / VPN CIDR only — see [docs/agent-network.md](docs/agent-network.md). Enable [backups](docs/backup.md) and test restore periodically.
 
+> [!NOTE]
+> Use the same stack mode on every `./utils/deploy-prod.sh` and `./utils/gsad-compose.sh` call: `--local`, `--external`, or neither for default bundled-Traefik prod.
+
 ## Upgrade
 
 ```bash
 git pull && git submodule update --init --recursive && \
   ./utils/deploy-prod.sh --no-admin
+# e.g. add --external or --local if you used them on deploy
 ```
 
 Upgrade agents on GPU hosts ([server-agent/README.md](server-agent/README.md)):
@@ -122,7 +126,7 @@ Stop the stack (containers only; data volumes kept):
 ./utils/gsad-compose.sh down
 ```
 
-Use the same mode flag as deploy when applicable:
+Match the stack mode from deploy (see note above):
 
 - Local tryout: `./utils/gsad-compose.sh --local down`
 - External Traefik: `./utils/gsad-compose.sh --external down`
