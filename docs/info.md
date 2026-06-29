@@ -1,6 +1,17 @@
 # Registration fields
 
-Collect the following fields and save them as `data/account_prepare/registration.xlsx`. Headers must match [`account_prepare/registration_columns.yaml`](../account_prepare/registration_columns.yaml).
+## Input paths
+
+| Local path | How data arrives |
+|------------|------------------|
+| `data/account_prepare/registration.xlsx` | Manual spreadsheet (default) |
+| `data/account_prepare/registration_export.csv` | WPS form → server [`data_collect`](../data_collect/README.md) → **scp** to workstation → [`account_prepare`](../account_prepare/README.md) `prepare-accounts --input` |
+
+For the automated path, WPS sends JSON with keys `email`, `linux_username`, `name`, `student_id`, and `cohort` (see `data_collect/examples/registration.yaml`). CSV export headers must match the field table below.
+
+## Fields
+
+Collect the following fields. For the manual path, save them as `data/account_prepare/registration.xlsx`. Headers must match [`account_prepare/registration_columns.yaml`](../account_prepare/registration_columns.yaml).
 
 | Header (spreadsheet) | Field key        | Description |
 | -------------------- | ---------------- | ----------- |

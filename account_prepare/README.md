@@ -12,7 +12,7 @@ Convert a registration spreadsheet into GSAD and NetBird import CSVs, then email
 - **`GSAD_COMPOSE_MODE`** (optional, default **`prod`**): `prod` | `local` | `external` | `dev` — must match the running stack (`deploy-prod.sh`, `--local`, `--external`, or `dev-up.sh`)
 - For email: `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, … (see below)
 - NetBird group **`client_group`** must exist before import
-- Spreadsheet at `data/account_prepare/registration.xlsx` (or pass `--input`)
+- Registration input: `data/account_prepare/registration.xlsx` (manual), or `data/account_prepare/registration_export.csv` (downloaded from server `data_collect`; or pass `--input`)
 
 ```bash
 cd account_prepare && uv sync
@@ -33,6 +33,65 @@ Configured in [`registration_columns.yaml`](registration_columns.yaml):
 | cohort | 年级 |
 
 Passwords are **generated once on first ledger insert**: separate GSAD and NetBird values, same strength (≥8 chars, upper, lower, digit, symbol). Re-running `prepare-accounts` preserves existing passwords.
+
+## Registration input
+
+Two input sources feed the same ledger and column contract ([`registration_columns.yaml`](registration_columns.yaml)). Run `account_prepare` on your **workstation** from repo root; `data_collect` runs on a **server**.
+
+| Source | Server path | Local path |
+|--------|-------------|------------|
+| Manual spreadsheet (default) | — | `data/account_prepare/registration.xlsx` |
+| WPS / data_collect | `<host>:<path-to-data_collect>/data/export.csv` | `data/account_prepare/registration_export.csv` |
+
+### data_collect setup (one-time, on server)
+
+Deploy [`data_collect`](../data_collect/README.md) on the server (see its README). The full CSV export is written to `<path-to-data_collect>/data/export.csv` on the server host (Docker volume `./data:/data`).
+
+1. **Schema** — on the server, copy the registration example:
+   ```bash
+   cp examples/registration.yaml schema.yaml
+   ```
+   Restart the service after changing schema.
+
+2. **WPS automation** — `POST https://<PUBLIC_HOST>/webhook` with `Authorization: Bearer <WEBHOOK_TOKEN>` and raw JSON body. Field keys must match schema `input_key` values: `email`, `linux_username`, `name`, `student_id`, `cohort`.
+
+3. **CSV headers** — server `data/export.csv` must use the same Chinese headers as the table above (the registration schema aligns with this).
+
+### Download export (from server)
+
+From **repo root on your workstation**, copy the latest export before each prepare run. `<path-to-data_collect>` is the server directory where `data_collect` is cloned or deployed:
+
+```bash
+scp <user>@<host>:<path-to-data_collect>/data/export.csv \
+  data/account_prepare/registration_export.csv
+```
+
+Or with rsync:
+
+```bash
+rsync -av <user>@<host>:<path-to-data_collect>/data/export.csv \
+  data/account_prepare/registration_export.csv
+```
+
+### Workflow (from data_collect)
+
+Run steps **2–5** from [Workflow](#workflow) unchanged on your workstation. Replace step 1 with download + local prepare:
+
+```bash
+# 0. Download latest export from server
+scp <user>@<host>:<path-to-data_collect>/data/export.csv \
+  data/account_prepare/registration_export.csv
+
+# 1. Local export.csv → ledger + CSVs + pre-import snapshot (when delta pending)
+uv run --project account_prepare prepare-accounts \
+  --input data/account_prepare/registration_export.csv
+
+# 2–5. Same as Workflow below
+```
+
+Re-run steps 0–1 after new WPS submissions. The ledger upserts by email, so repeating prepare is safe.
+
+If `data_collect` lives in a separate repo, still download via scp/rsync to `registration_export.csv`. You may pass a different `--input` path, but the path above is recommended.
 
 ## Workflow
 
