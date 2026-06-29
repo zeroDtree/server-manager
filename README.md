@@ -14,7 +14,7 @@
 ## Quick Links
 
 | [🚀 Production Deploy](#deploy) | [💻 Local Tryout (No TLS)](docs/local-prod.md) | [🛠️ UI & Agent Dev](docs/dev.md) | [👥 Student Onboarding](account_prepare/README.md) |
-| :---: | :---: | :---: | :---: |
+| :----------------------------: | :-------------------------------------------: | :-----------------------------: | :-----------------------------------------------: |
 
 ---
 
@@ -65,35 +65,31 @@ flowchart TB
 ## Deploy
 
 1. Clone with submodules:
+  
+  ```bash
+  git clone --recursive git@github.com:zeroDtree/server-manager.git
+  # or, after a plain clone:
+  # git submodule update --init --recursive
+  ```
+  
+2. Configure `.env` and deploy:
+  ```bash
+  cp .env.example .env
+  ```
+  ```ini
+  # edit GSAD_PUBLIC_HOST and ACME_EMAIL in .env
+  GSAD_PUBLIC_HOST=gsad.example.com
+  ACME_EMAIL=admin@example.com
+  ```
+  ```bash
+  ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh
+  ```
+  > [!TIP]
+  > If you skipped `ADMIN_EMAIL`, create the admin after deploy:
+  > `ADMIN_EMAIL=admin@example.com ./utils/create-prod-admin.sh`
 
-```bash
-git clone --recursive git@github.com:zeroDtree/server-manager.git
-# or, after a plain clone:
-# git submodule update --init --recursive
-```
-
-2. Configure `.env` and deploy (`deploy-prod.sh` runs preflight and `secret.sh` internally):
-
-```bash
-cp .env.example .env
-```
-
-```ini
-# edit GSAD_PUBLIC_HOST and ACME_EMAIL in .env
-GSAD_PUBLIC_HOST=gsad.example.com
-ACME_EMAIL=admin@example.com
-```
-
-```bash
-ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh
-```
-
-If you skipped `ADMIN_EMAIL`, create the admin after deploy: `ADMIN_EMAIL=admin@example.com ./utils/create-prod-admin.sh`.
-
-Local HTTP stack (no TLS): set `GSAD_PUBLIC_HOST=localhost` in `.env`, then `ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --local` (see [docs/local-prod.md](docs/local-prod.md)).
-
-**Existing edge Traefik** (e.g. NetBird on 80/443): set `TRAEFIK_EXTERNAL_NETWORK` in `.env`, then `ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --external` (see [docs/external-traefik.md](docs/external-traefik.md)).
-
+  > [!TIP]
+  > **Existing edge Traefik** (e.g. NetBird on 80/443): set `TRAEFIK_EXTERNAL_NETWORK` in `.env`, then `ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --external` (see [docs/external-traefik.md](docs/external-traefik.md)).
 3. Log in with the admin from step 2.
 4. **Admin → Import servers** (CSV); [derive agent PSKs](docs/agent-psk.md); deploy [server-agent](server-agent/) on each GPU host.
 5. **Admin → Import users**.
@@ -119,13 +115,6 @@ git pull && git submodule update --init --recursive && sudo ./deploy/install.sh
 
 Set `GSAD_PUBLIC_HOST` and `ACME_EMAIL` in `.env`. `deploy-prod.sh` runs [`secret.sh`](utils/secret.sh) to generate `.env.secrets`. See [`.env.example`](.env.example) and [`.env.secrets.example`](.env.secrets.example).
 
-## Other setups
-
-| Setup                            | Guide                                    |
-| -------------------------------- | ---------------------------------------- |
-| Development (Vite + mock agents) | [docs/dev.md](docs/dev.md)               |
-| Local stack without TLS          | [docs/local-prod.md](docs/local-prod.md) |
-| External edge Traefik            | [docs/external-traefik.md](docs/external-traefik.md) |
 
 ## Further reading
 
