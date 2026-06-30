@@ -152,10 +152,16 @@ uv run --project account_prepare prepare-accounts --reconcile
 
 ## Environment
 
-Operator config in [`.env.example`](../.env.example) → `.env`; secrets in [`.env.secrets.example`](../.env.secrets.example) → `.env` (stack secrets via [`secret.sh`](../utils/secret.sh)). Commands load both automatically.
+Operator config in [`.env.example`](../.env.example) → `.env`; secrets in [`.env.secrets.example`](../.env.secrets.example) → `.env.secrets` (stack secrets via [`secret.sh`](../utils/secret.sh)). `account_prepare` commands load both from repo root automatically.
 
 > [!NOTE]
 > Put tokens and SMTP passwords in `.env.secrets`. Avoid `--token` or inline secrets on the command line — they can appear in shell history and process listings. (`reconcile-accounts` accepts `--token` from netbird-manage; `prepare-accounts` reads `NETBIRD_TOKEN` from env only.)
+>
+> **`netbird-manage` (workflow step 2):** run from **repo root** so it picks up repo-root `.env` and `.env.secrets`. It does not read `account_prepare`'s paths — only the current working directory. Confirm the token is in `.env.secrets` (not `.env.secrets.example`) and non-empty:
+>
+> ```bash
+> grep '^NETBIRD_TOKEN=' .env.secrets
+> ```
 
 | Variable | File | Required for | Notes |
 | --- | --- | --- | --- |
