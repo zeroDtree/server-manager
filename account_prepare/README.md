@@ -48,7 +48,7 @@ Field semantics: [docs/info.md](../docs/info.md). Column mapping: [`registration
 For experienced operators — run from repo root after new registrations arrive. Step 3 is manual in GSAD Admin.
 
 ```bash
-uv run --project account_prepare prepare-accounts --input /path/to/data_collect/data/export.csv
+uv run --project account_prepare prepare-accounts --input data_collect/data/export.csv
 uv run --project netbird-manage user-manage import -f data/account_prepare/netbird_import_delta.csv --resolve-group-names
 # GSAD Admin → 用户导入 ← data/account_prepare/gsad_users_delta.csv
 uv run --project account_prepare reconcile-accounts
@@ -73,7 +73,7 @@ When pending users exist, this step captures remote emails and writes `pre_impor
 
 ```bash
 uv run --project account_prepare prepare-accounts \
-  --input /path/to/data_collect/data/export.csv
+  --input data_collect/data/export.csv
 ```
 
 **Path B — manual spreadsheet:** upload `registration.xlsx` to `data/account_prepare/`, then run:
