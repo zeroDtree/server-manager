@@ -152,7 +152,7 @@ uv run --project account_prepare prepare-accounts --reconcile
 
 ## Environment
 
-Operator config in `.env`; secrets in `.env.secrets` (see repo root [`secret.sh`](../utils/secret.sh)). Commands load both automatically — do not pass tokens on the command line.
+Operator config in [`.env.example`](../.env.example) → `.env`; secrets in [`.env.secrets.example`](../.env.secrets.example) → `.env` (stack secrets via [`secret.sh`](../utils/secret.sh)). Commands load both automatically — do not pass tokens on the command line.
 
 | Variable | File | Required for | Notes |
 | --- | --- | --- | --- |
@@ -160,7 +160,10 @@ Operator config in `.env`; secrets in `.env.secrets` (see repo root [`secret.sh`
 | `NETBIRD_API_BASE` | `.env` | self-hosted NetBird | **Must include scheme**, e.g. `https://netbird.example.com` |
 | `GSAD_PUBLIC_URL` | `.env` | notify | Full GSAD login URL |
 | `NETBIRD_DASHBOARD_URL` | `.env` | notify (optional) | NetBird hint in email |
-| `SMTP_*` | `.env` / `.env.secrets` | notify `--send` | e.g. `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_PORT`, `SMTP_SSL` |
+| `SMTP_HOST`, `SMTP_USER` | `.env` | notify `--send` | See [`.env.example`](../.env.example) |
+| `SMTP_PASSWORD` | `.env.secrets` | notify `--send` | See [`.env.secrets.example`](../.env.secrets.example) |
+| `SMTP_FROM` | `.env` | notify `--send` (optional) | Defaults to `SMTP_USER`; set only when the visible From address differs |
+| `SMTP_PORT`, `SMTP_SSL`, `SMTP_USE_TLS`, `SMTP_DELAY_SECONDS` | `.env` | notify `--send` (optional) | See [`.env.example`](../.env.example) |
 
 > [!TIP]
 > For self-hosted NetBird, set `NETBIRD_API_BASE` to the full API URL including `https://` or `http://` — a hostname alone is not enough.
