@@ -171,6 +171,8 @@ else
   ui_url="https://${GSAD_PUBLIC_HOST}/"
 fi
 
+gsad_write_compose_mode "${GSAD_COMPOSE_MODE}"
+
 log "deploy complete"
 printf '%s\n' \
   "" \

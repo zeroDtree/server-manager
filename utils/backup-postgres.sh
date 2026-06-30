@@ -37,10 +37,10 @@ done
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT_DIR="${REPO_ROOT}/utils"
 GSAD_REPO_ROOT="$REPO_ROOT"
-GSAD_COMPOSE_MODE=prod
 
 # shellcheck source=lib/compose.sh
 source "${SCRIPT_DIR}/lib/compose.sh"
+gsad_resolve_compose_mode
 OUT_DIR="${BACKUP_DIR:-$REPO_ROOT/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 MAX_TOTAL_MB="${MAX_TOTAL_MB:-500}"

@@ -52,3 +52,4 @@ fi
 
 log "starting dev stack (profile=mock)"
 gsad_compose up --build "$@"
+gsad_write_compose_mode dev

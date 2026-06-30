@@ -1,6 +1,7 @@
 # Local environment (templates: .env.example, .env.secrets.example)
 .env
 .env.secrets
+.gsad-compose-mode
 .env.local
 .env.*.local
 

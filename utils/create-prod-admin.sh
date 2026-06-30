@@ -11,7 +11,7 @@
 # Env: ADMIN_PASSWORD — plain password; prompts if unset (do not store in .env)
 # Env: ADMIN_LINUX_USERNAME — Linux username (default: gsadadmin)
 # Env: ADMIN_DISPLAY_NAME — display name (default: Admin)
-# Env: GSAD_COMPOSE_MODE — prod (default), local, or external (match deploy-prod.sh flags)
+# Stack mode: --local / --external flags, else .gsad-compose-mode from deploy, else prod.
 #
 # Examples:
 #   ADMIN_EMAIL=admin@example.com ./utils/create-prod-admin.sh
@@ -61,10 +61,10 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 GSAD_REPO_ROOT="$REPO_ROOT"
-: "${GSAD_COMPOSE_MODE:=prod}"
 
 # shellcheck source=lib/compose.sh
 source "${SCRIPT_DIR}/lib/compose.sh"
+gsad_resolve_compose_mode
 
 LINUX_USERNAME_PATTERN='^[a-z_][a-z0-9_-]{0,31}$'
 

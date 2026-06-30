@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -13,20 +12,7 @@ class GsadDbError(RuntimeError):
 
 def _gsad_compose_argv(repo_root: Path, *compose_args: str) -> list[str]:
     script = repo_root / "utils" / "gsad-compose.sh"
-    mode = os.environ.get("GSAD_COMPOSE_MODE", "prod").strip()
-    cmd = [str(script)]
-    if mode == "local":
-        cmd.append("--local")
-    elif mode == "external":
-        cmd.append("--external")
-    elif mode == "dev":
-        cmd.append("--dev")
-    elif mode != "prod":
-        raise GsadDbError(
-            f"unknown GSAD_COMPOSE_MODE={mode!r} (use prod, local, external, or dev)"
-        )
-    cmd.extend(compose_args)
-    return cmd
+    return [str(script), *compose_args]
 
 
 def fetch_gsad_emails(*, repo_root: Path | None = None) -> set[str]:

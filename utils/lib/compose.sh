@@ -1,14 +1,65 @@
 # Shared Docker Compose helpers for GSAD stacks (prod, local-prod, external, dev).
-# Source from utils/*.sh — set GSAD_REPO_ROOT and GSAD_COMPOSE_MODE before calling gsad_compose.
+# Source from utils/*.sh — set GSAD_REPO_ROOT before calling gsad_compose.
 #
 # GSAD_COMPOSE_MODE: prod (default) | local | external | dev
-
-: "${GSAD_COMPOSE_MODE:=prod}"
+# Resolution (when not set by caller flag): env override > .gsad-compose-mode > prod
 
 if [[ -z "${GSAD_REPO_ROOT:-}" ]]; then
   printf 'compose: ERROR: GSAD_REPO_ROOT must be set before sourcing compose.sh\n' >&2
   return 1 2>/dev/null || exit 1
 fi
+
+gsad_compose_mode_file() {
+  printf '%s/.gsad-compose-mode' "${GSAD_REPO_ROOT}"
+}
+
+gsad_valid_compose_mode() {
+  case "$1" in
+    prod|local|external|dev) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+gsad_read_persisted_compose_mode() {
+  local file mode
+  file="$(gsad_compose_mode_file)"
+  [[ -f "$file" ]] || return 1
+  mode="$(tr -d '[:space:]' < "$file")"
+  if gsad_valid_compose_mode "$mode"; then
+    printf '%s' "$mode"
+    return 0
+  fi
+  printf 'compose: WARNING: invalid mode in %s: %q\n' "$file" "$mode" >&2
+  return 1
+}
+
+gsad_write_compose_mode() {
+  local mode="$1"
+  if ! gsad_valid_compose_mode "$mode"; then
+    printf 'compose: ERROR: invalid compose mode for write: %q\n' "$mode" >&2
+    return 1 2>/dev/null || exit 1
+  fi
+  printf '%s\n' "$mode" > "$(gsad_compose_mode_file)"
+}
+
+gsad_resolve_compose_mode() {
+  local mode="${GSAD_COMPOSE_MODE:-}"
+  mode="${mode//[$'\t\r\n ']/}"
+  if [[ -n "$mode" ]]; then
+    if ! gsad_valid_compose_mode "$mode"; then
+      printf 'compose: ERROR: unknown GSAD_COMPOSE_MODE=%s (use prod, local, external, or dev)\n' \
+        "$mode" >&2
+      return 1 2>/dev/null || exit 1
+    fi
+    GSAD_COMPOSE_MODE="$mode"
+    return 0
+  fi
+  if mode="$(gsad_read_persisted_compose_mode)"; then
+    GSAD_COMPOSE_MODE="$mode"
+    return 0
+  fi
+  GSAD_COMPOSE_MODE=prod
+}
 
 _gsad_compose_file_args() {
   GSAD_COMPOSE_FILE_ARGS=()

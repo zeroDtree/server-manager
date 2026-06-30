@@ -105,7 +105,7 @@ ADMIN_EMAIL=admin@example.com ./utils/create-prod-admin.sh --external
 Check running containers — expect **postgres**, **redis**, **backend**, **frontend**; no GSAD **traefik** container:
 
 ```bash
-./utils/gsad-compose.sh --external ps
+./utils/gsad-compose.sh ps
 ```
 
 Routing and security:

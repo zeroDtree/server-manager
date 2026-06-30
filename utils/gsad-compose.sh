@@ -3,6 +3,8 @@
 # @help-begin
 # Run docker compose with repo env, compose files, and profile for prod, local-prod, external, or dev.
 #
+# Stack mode: CLI flag overrides GSAD_COMPOSE_MODE env, then .gsad-compose-mode (written by deploy), then prod.
+#
 # Usage:
 #   ./gsad-compose.sh [options] [compose args...]
 #
@@ -32,14 +34,14 @@ usage() {
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GSAD_REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-GSAD_COMPOSE_MODE=prod
+COMPOSE_MODE_FROM_FLAG=0
 
 compose_args=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --local) GSAD_COMPOSE_MODE=local; shift ;;
-    --external) GSAD_COMPOSE_MODE=external; shift ;;
-    --dev) GSAD_COMPOSE_MODE=dev; shift ;;
+    --local) GSAD_COMPOSE_MODE=local; COMPOSE_MODE_FROM_FLAG=1; shift ;;
+    --external) GSAD_COMPOSE_MODE=external; COMPOSE_MODE_FROM_FLAG=1; shift ;;
+    --dev) GSAD_COMPOSE_MODE=dev; COMPOSE_MODE_FROM_FLAG=1; shift ;;
     -h|--help) usage ;;
     --) shift; compose_args+=("$@"); break ;;
     *) compose_args+=("$1"); shift ;;
@@ -48,6 +50,10 @@ done
 
 # shellcheck source=lib/compose.sh
 source "${SCRIPT_DIR}/lib/compose.sh"
+
+if [[ "$COMPOSE_MODE_FROM_FLAG" -eq 0 ]]; then
+  gsad_resolve_compose_mode
+fi
 
 cd "$GSAD_REPO_ROOT"
 gsad_compose "${compose_args[@]}"
