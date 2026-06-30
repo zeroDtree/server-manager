@@ -152,7 +152,10 @@ uv run --project account_prepare prepare-accounts --reconcile
 
 ## Environment
 
-Operator config in [`.env.example`](../.env.example) → `.env`; secrets in [`.env.secrets.example`](../.env.secrets.example) → `.env` (stack secrets via [`secret.sh`](../utils/secret.sh)). Commands load both automatically — do not pass tokens on the command line.
+Operator config in [`.env.example`](../.env.example) → `.env`; secrets in [`.env.secrets.example`](../.env.secrets.example) → `.env` (stack secrets via [`secret.sh`](../utils/secret.sh)). Commands load both automatically.
+
+> [!NOTE]
+> Put tokens and SMTP passwords in `.env.secrets`. Avoid `--token` or inline secrets on the command line — they can appear in shell history and process listings. (`reconcile-accounts` accepts `--token` from netbird-manage; `prepare-accounts` reads `NETBIRD_TOKEN` from env only.)
 
 | Variable | File | Required for | Notes |
 | --- | --- | --- | --- |
