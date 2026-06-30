@@ -7,7 +7,7 @@ Run [`account_prepare`](../account_prepare/README.md) from **repo root on the GS
 | Path on GSAD server | How data arrives |
 |---------------------|------------------|
 | `data/account_prepare/registration.xlsx` | Manual spreadsheet (default) |
-| `/path/to/data_collect/data/export.csv` | WPS form → [`data_collect`](../data_collect/README.md) → `prepare-accounts --input` |
+| `data_collect/data/export.csv` | WPS form → [`data_collect`](../data_collect/README.md) → `prepare-accounts --input` |
 
 For the automated path, WPS sends JSON with keys `email`, `linux_username`, `name`, `student_id`, and `cohort` (see `data_collect/examples/registration.yaml`). CSV export headers must match the field table below.
 
