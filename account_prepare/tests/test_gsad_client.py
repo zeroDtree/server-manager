@@ -133,7 +133,7 @@ def test_import_users_csv_parses_result(tmp_path: Path) -> None:
                     "message": "ok",
                     "data": {
                         "created": 1,
-                        "skipped": 0,
+                        "updated": 0,
                         "errors": [],
                     },
                 }
@@ -150,7 +150,7 @@ def test_import_users_csv_parses_result(tmp_path: Path) -> None:
         session=session,
     )
     result = client.import_users_csv(csv_path)
-    assert result == UserImportResult(created=1, skipped=0, errors=[])
+    assert result == UserImportResult(created=1, updated=0, errors=[])
     assert not result.has_errors
 
 
@@ -172,7 +172,7 @@ def test_import_users_csv_partial_errors(tmp_path: Path) -> None:
                 "message": "ok",
                 "data": {
                     "created": 0,
-                    "skipped": 0,
+                    "updated": 0,
                     "errors": [{"row": 2, "reason": "linux_username already exists"}],
                 },
             }

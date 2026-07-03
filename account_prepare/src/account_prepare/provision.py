@@ -185,7 +185,7 @@ def run_gsad_import(csv_path: Path, *, client: GsadClient | None = None) -> User
 
 def print_gsad_import_result(result: UserImportResult) -> None:
     print(
-        f"GSAD import: created={result.created} skipped={result.skipped} "
+        f"GSAD import: created={result.created} updated={result.updated} "
         f"errors={len(result.errors)}"
     )
     for error in result.errors:

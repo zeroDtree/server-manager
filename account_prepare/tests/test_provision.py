@@ -196,7 +196,7 @@ def test_run_provision_full_pipeline(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     def fake_gsad(csv_path: Path, *, client=None) -> UserImportResult:
         order.append("gsad")
-        return UserImportResult(created=1, skipped=0, errors=[])
+        return UserImportResult(created=1, updated=0, errors=[])
 
     def fake_reconcile(ledger, *, base_url, token, data_dir, write_snapshots=True) -> int:
         order.append("reconcile")
@@ -248,7 +248,7 @@ def test_run_provision_stops_on_gsad_errors(tmp_path: Path, monkeypatch: pytest.
     def fake_gsad(csv_path: Path, *, client=None) -> UserImportResult:
         return UserImportResult(
             created=0,
-            skipped=0,
+            updated=0,
             errors=[UserImportError(row=2, reason="duplicate email in CSV")],
         )
 

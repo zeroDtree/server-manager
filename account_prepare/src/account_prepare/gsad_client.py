@@ -23,7 +23,7 @@ class UserImportError:
 @dataclass(frozen=True)
 class UserImportResult:
     created: int
-    skipped: int
+    updated: int
     errors: list[UserImportError]
 
     @property
@@ -190,7 +190,7 @@ class GsadClient:
         errors = _parse_import_errors(data.get("errors") or [])
         return UserImportResult(
             created=int(data.get("created", 0)),
-            skipped=int(data.get("skipped", 0)),
+            updated=int(data.get("updated", 0)),
             errors=errors,
         )
 

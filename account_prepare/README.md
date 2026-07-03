@@ -114,6 +114,8 @@ uv run --project account_prepare gsad-import-accounts \
 
 `provision-accounts` runs this step automatically after confirmation.
 
+Existing GSAD emails are upserted (profile fields including `linux_username`; login password is not reset).
+
 ### 4. Reconcile
 
 Sync ledger status from NetBird API and GSAD Postgres:
