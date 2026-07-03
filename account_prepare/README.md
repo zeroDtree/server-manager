@@ -45,12 +45,22 @@ Field semantics: [docs/info.md](../docs/info.md). Column mapping: [`registration
 
 ## Quick reference (TL;DR)
 
-For experienced operators — run from repo root after new registrations arrive. Step 3 is manual in GSAD Admin.
+For experienced operators — run from repo root after new registrations arrive.
+
+**Single command (recommended):** preview pending deltas, confirm, then provision end-to-end.
+
+```bash
+uv run --project account_prepare provision-accounts --input data_collect/data/export.csv
+```
+
+Use `--yes` to skip the confirmation prompt, or `--preview-only` to prepare and preview without remote changes.
+
+**Manual steps** (still supported):
 
 ```bash
 uv run --project account_prepare prepare-accounts --input data_collect/data/export.csv
 uv run --project netbird-manage user-manage import -f data/account_prepare/netbird_import_delta.csv --resolve-group-names
-# GSAD Admin → 用户导入 ← data/account_prepare/gsad_users_delta.csv
+uv run --project account_prepare gsad-import-accounts -f data/account_prepare/gsad_users_delta.csv
 uv run --project account_prepare reconcile-accounts
 uv run --project account_prepare notify-accounts --send
 ```
@@ -94,9 +104,14 @@ uv run --project netbird-manage user-manage import \
 
 ### 3. GSAD user import
 
-In **GSAD Admin**, open **用户导入** and upload:
+Programmatic import via the admin API (recommended):
 
-`data/account_prepare/gsad_users_delta.csv`
+```bash
+uv run --project account_prepare gsad-import-accounts \
+  -f data/account_prepare/gsad_users_delta.csv
+```
+
+`provision-accounts` runs this step automatically after confirmation.
 
 ### 4. Reconcile
 
@@ -117,6 +132,14 @@ uv run --project account_prepare notify-accounts --send
 ### Preview and debug
 
 ```bash
+# Preview the full provisioning flow (prepare + delta summary + NetBird dry-run)
+uv run --project account_prepare provision-accounts \
+  --input data_collect/data/export.csv --preview-only
+
+# Non-interactive provisioning
+uv run --project account_prepare provision-accounts \
+  --input data_collect/data/export.csv --yes
+
 # Preview NetBird import changes (no writes)
 uv run --project netbird-manage user-manage import \
   -f data/account_prepare/netbird_import_delta.csv --dry-run
@@ -165,9 +188,11 @@ Operator config in [`.env.example`](../.env.example) → `.env`; secrets in [`.e
 
 | Variable | File | Required for | Notes |
 | --- | --- | --- | --- |
-| `NETBIRD_TOKEN` | `.env.secrets` | prepare (when pending), reconcile | NetBird PAT |
+| `NETBIRD_TOKEN` | `.env.secrets` | prepare (when pending), reconcile, provision | NetBird PAT |
 | `NETBIRD_API_BASE` | `.env` | self-hosted NetBird | **Must include scheme**, e.g. `https://netbird.example.com` |
-| `GSAD_PUBLIC_URL` | `.env` | notify | Full GSAD login URL |
+| `GSAD_PUBLIC_URL` | `.env` | notify, provision, gsad-import | Full GSAD login URL; API origin is derived from this host |
+| `GSAD_ADMIN_EMAIL` | `.env.secrets` | provision, gsad-import | GSAD admin account for API import |
+| `GSAD_ADMIN_PASSWORD` | `.env.secrets` | provision, gsad-import | GSAD admin password for API import |
 | `NETBIRD_DASHBOARD_URL` | `.env` | notify (optional) | NetBird hint in email |
 | `SMTP_HOST`, `SMTP_USER` | `.env` | notify `--send` | See [`.env.example`](../.env.example) |
 | `SMTP_PASSWORD` | `.env.secrets` | notify `--send` | See [`.env.secrets.example`](../.env.secrets.example) |

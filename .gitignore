@@ -35,3 +35,4 @@ compose.local.yaml
 # Database backups (utils/backup-postgres.sh)
 backups/
 /data/
+__pycache__
