@@ -91,10 +91,12 @@ flowchart TB
 
 5. **Admin → Import users**.
 
+   For bulk registration from a spreadsheet, skip manual import and use [`account_prepare`](account_prepare/README.md) instead.
+
 ## Post-deploy checklist
 
 - [ ] **Secure the agent port:** Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts / VPN CIDR only. See [docs/agent-network.md](docs/agent-network.md).
-- [ ] **(Optional) Student onboarding via spreadsheet:** Use [`account_prepare`](account_prepare/README.md) to convert registration XLSX data into GSAD + NetBird import CSVs, email unified credentials, and maintain a registration ledger (SQLite). Requires the GSAD stack running on this host.
+- [ ] **(Optional) Student onboarding:** Use [`account_prepare`](account_prepare/README.md) with WPS + [`data_collect`](data_collect/) → `export.csv`. Run `provision-accounts` from repo root (NetBird + GSAD import, reconcile, notify). Requires the GSAD stack on this host and `NETBIRD_TOKEN` / SMTP secrets in `.env.secrets`.
 
 ## Upgrade
 
@@ -153,7 +155,7 @@ To remove named volumes (including PostgreSQL data), add `-v`. See [docs/local-p
 
 ### `.env.secrets` (auto-generated)
 
-`deploy-prod.sh` runs [`secret.sh`](utils/secret.sh) to generate `.env.secrets` with random values for all secrets except `NETBIRD_TOKEN` and `SMTP_PASSWORD`, which must be set manually.
+`deploy-prod.sh` runs [`secret.sh`](utils/secret.sh) to generate `.env.secrets` with random values for all secrets except the `account_prepare` keys below, which must be set manually.
 
 | Key | Source |
 |-----|--------|
@@ -162,6 +164,8 @@ To remove named volumes (including PostgreSQL data), add `-v`. See [docs/local-p
 | `CREDENTIALS_ENCRYPTION_KEY` | Auto-generated |
 | `NETBIRD_TOKEN` | Set manually (for `account_prepare`) |
 | `SMTP_PASSWORD` | Set manually (for `account_prepare`) |
+| `GSAD_ADMIN_EMAIL` | Set manually (for `account_prepare` API import) |
+| `GSAD_ADMIN_PASSWORD` | Set manually (for `account_prepare` API import) |
 
 See [`.env.example`](.env.example) and [`.env.secrets.example`](.env.secrets.example) for all keys.
 
@@ -173,7 +177,7 @@ See [`.env.example`](.env.example) and [`.env.secrets.example`](.env.secrets.exa
 - [docs/external-traefik.md](docs/external-traefik.md) — reuse an existing edge Traefik (NetBird, etc.)
 - [docs/agent-psk.md](docs/agent-psk.md) — per-GPU host PSK derivation
 - [docs/backup.md](docs/backup.md) — backup, restore, and log rotation
-- [account_prepare/README.md](account_prepare/README.md) — registration CSV onboarding workflow and field reference
+- [account_prepare/README.md](account_prepare/README.md) — student registration provisioning (WPS → CSV → NetBird/GSAD → email)
 - [gsad-backend/README.md](gsad-backend/README.md) — API routes, schema, Flyway
 - [server-agent/README.md](server-agent/README.md) — GPU host agent install
 

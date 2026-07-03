@@ -1,81 +1,4 @@
-## wps端代码
-
-```py
-import requests
-
-df = dbt(field=["真实姓名", "邮箱", "linux账户名", "学号", "年级"])
-
-records = df.to_dict(orient="records")
-
-# 字段映射
-records = [
-    {
-        "email": record["邮箱"],
-        "linux_username": record["linux账户名"],
-        "name": record["真实姓名"],
-        "student_id": record["学号"],
-        "cohort": record["年级"],
-    }
-    for record in records
-]
-
-if not records:
-    print("没有需要上传的数据")
-    exit()
-
-print(records)
-# exit(0)
-
-url = "https://collect.example.com/webhook/batch"
-
-headers = {
-    "Authorization": "Bearer xxx",
-    "Content-Type": "application/json",
-}
-
-from prettytable import PrettyTable  # 1. 导入库
-
-try:
-    resp = requests.post(url, headers=headers, json=records, timeout=10)
-    print(f"状态码: {resp.status_code}\n")
-    
-    resp_data = resp.json()
-    
-    if "results" in resp_data:
-        # 2. 创建一个表格对象，并定义表头
-        table = PrettyTable()
-        table.field_names = ["姓名", "邮箱", "操作状态"]
-        
-        # 3. 设置对齐方式 (L: 左对齐, C: 居中, R: 右对齐)
-        table.align["姓名"] = "l"
-        table.align["邮箱"] = "l"
-        table.align["操作状态"] = "c"
-        
-        # 4. 填充数据
-        for record, result in zip(records, resp_data["results"]):
-            name = record["name"]
-            email = record["email"]
-            status = "新插入" if result.get("inserted") else ("已更新" if result.get("updated") else "无变化")
-            
-            table.add_row([name, email, status])
-            
-        # 5. 直接打印表格对象（它会自动完美处理中英文对齐和边框）
-        print(table)
-        
-    else:
-        print("返回格式不匹配：", resp.text)
-
-except requests.exceptions.RequestException as e:
-    print("请求失败：", e)
-except ValueError:
-    print("解析 JSON 失败：", resp.text)
-```
-
-
 # Account prepare
-
-
-
 
 Convert registration data into GSAD and NetBird import CSVs, then email unified credentials. A SQLite **registration ledger** is the source of truth for stable passwords and provisioning status.
 
@@ -84,20 +7,69 @@ Convert registration data into GSAD and NetBird import CSVs, then email unified 
 
 ---
 
+## Overview
 
-## Quick reference (TL;DR)
+End-to-end flow from spreadsheet intake to credential email. The ledger holds generated passwords and tracks `gsad_status`, `netbird_status`, and `notified_at`.
 
-For experienced operators — run from repo root after new registrations arrive.
+```mermaid
+flowchart LR
+  subgraph intake ["Intake"]
+    WPS["WPS spreadsheet"]
+    DC["data_collect webhook"]
+    Export["export.csv"]
+  end
 
-**Single command (recommended):** preview pending deltas, confirm, then provision end-to-end.
+  subgraph local ["data/account_prepare"]
+    Ledger[("registration_ledger.sqlite")]
+    Snapshot["pre_import_snapshot.json"]
+    Deltas["delta CSVs"]
+  end
+
+  subgraph remote ["Remote systems"]
+    NB["NetBird API"]
+    GSAD["GSAD Postgres"]
+    SMTP["SMTP"]
+  end
+
+  WPS -->|"JSON batch"| DC
+  DC --> Export
+  Export -->|"prepare-accounts"| Ledger
+  Ledger --> Deltas
+  Ledger --> Snapshot
+  Deltas -->|"netbird import"| NB
+  Deltas -->|"gsad-import-accounts"| GSAD
+  NB -->|"reconcile-accounts"| Ledger
+  GSAD -->|"reconcile-accounts"| Ledger
+  Ledger -->|"notify-accounts"| SMTP
+
+  classDef intake fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+  classDef local fill:#e1f5fe,stroke:#03a9f4,stroke-width:2px
+  classDef remote fill:#efebe9,stroke:#795548,stroke-width:2px
+  class WPS,DC,Export intake
+  class Ledger,Snapshot,Deltas local
+  class NB,GSAD,SMTP remote
+```
+
+---
+
+## Quick start
+
+Run from **repo root** on the GSAD server after new registrations arrive.
 
 ```bash
 uv run --project account_prepare provision-accounts --input data_collect/data/export.csv
 ```
 
-Use `--yes` to skip the confirmation prompt, `--preview-only` to prepare and preview without remote changes, or `--skip-notify` to provision without sending email (then use `notify-accounts --print` / `--send`).
+Preview pending deltas, confirm, then provision end-to-end (NetBird import, GSAD import, reconcile, notify).
 
-**Manual steps** (still supported):
+| Flag | Effect |
+| --- | --- |
+| _(none)_ | Interactive confirm before remote changes |
+| `--yes` | Skip confirmation |
+| `--preview-only` | Prepare + preview; no remote writes |
+| `--skip-notify` | Provision without email (then `notify-accounts --print` / `--send`) |
+
+**Equivalent manual steps:**
 
 ```bash
 uv run --project account_prepare prepare-accounts --input data_collect/data/export.csv
@@ -109,15 +81,14 @@ uv run --project account_prepare notify-accounts --send
 
 ---
 
-## Where to run
+## Prerequisites
 
-Run all commands from **repo root on the GSAD server** (where the stack and Postgres run). `prepare-accounts` and `reconcile-accounts` query GSAD Postgres via `./utils/gsad-compose.sh exec ...`; they will fail if the stack is not up on that host.
-
+- Run all commands from **repo root on the GSAD server** (where the stack and Postgres run). `prepare-accounts` and `reconcile-accounts` query GSAD Postgres via `./utils/gsad-compose.sh exec ...`; they fail if the stack is not up.
 - **GSAD stack** running (mode recorded in `.gsad-compose-mode` after deploy)
-- **Environment** — repo-root `.env` and `.env.secrets` configured (see [Environment](#environment))
+- **Environment** — repo-root `.env` and `.env.secrets` configured (see [Configuration](#configuration))
 - **NetBird** — group **`client_group`** must exist before import
 
-## One-time setup
+One-time dependency sync:
 
 ```bash
 cd account_prepare && uv sync
@@ -143,100 +114,160 @@ WPS sends JSON with keys `email`, `linux_username`, `name`, `student_id`, and `c
 | 年级 | `cohort` | e.g. class of `2024`, `2025` |
 
 > [!NOTE]
-> Passwords are generated once on first ledger insert (separate GSAD and NetBird values). Re-running `prepare-accounts` preserves existing passwords.
-> `linux_username` can be updated for an existing email. When it changes, only GSAD is moved back to pending and must be re-imported; NetBird status is unchanged. `notified_at` is cleared so the user can be notified again after GSAD completes. Existing password include flags are preserved, so unchanged passwords are not automatically re-emailed.
->
-> **Do not collect:** GSAD / NetBird passwords (generated by the system).
+> Passwords are generated once on first ledger insert (separate GSAD and NetBird values). Re-running `prepare-accounts` preserves existing passwords. `linux_username` can be updated for an existing email; when it changes, only GSAD moves back to pending and must be re-imported. NetBird status is unchanged. `notified_at` is cleared so the user can be notified again after GSAD completes; existing password include flags are preserved, so unchanged passwords are not automatically re-emailed. **Do not collect** GSAD / NetBird passwords — they are generated by the system.
+
+See [WPS automation](#wps-automation) for the spreadsheet upload script.
+
+---
+
+## WPS automation
+
+Deploy [`data_collect`](../data_collect/README.md) and POST registration rows as JSON to its batch webhook. Replace the URL and bearer token with your deployment values. Field keys must match the table above.
+
+| JSON key | CSV header |
+| --- | --- |
+| `email` | 邮箱 |
+| `linux_username` | linux账户名 |
+| `name` | 真实姓名 |
+| `student_id` | 学号 |
+| `cohort` | 年级 |
+
+```py
+import requests
+
+df = dbt(field=["真实姓名", "邮箱", "linux账户名", "学号", "年级"])
+
+records = df.to_dict(orient="records")
+
+records = [
+    {
+        "email": record["邮箱"],
+        "linux_username": record["linux账户名"],
+        "name": record["真实姓名"],
+        "student_id": record["学号"],
+        "cohort": record["年级"],
+    }
+    for record in records
+]
+
+if not records:
+    print("没有需要上传的数据")
+    exit()
+
+url = "https://collect.example.com/webhook/batch"
+
+headers = {
+    "Authorization": "Bearer xxx",
+    "Content-Type": "application/json",
+}
+
+from prettytable import PrettyTable
+
+try:
+    resp = requests.post(url, headers=headers, json=records, timeout=10)
+    print(f"状态码: {resp.status_code}\n")
+
+    resp_data = resp.json()
+
+    if "results" in resp_data:
+        table = PrettyTable()
+        table.field_names = ["姓名", "邮箱", "操作状态"]
+        table.align["姓名"] = "l"
+        table.align["邮箱"] = "l"
+        table.align["操作状态"] = "c"
+
+        for record, result in zip(records, resp_data["results"]):
+            name = record["name"]
+            email = record["email"]
+            status = "新插入" if result.get("inserted") else ("已更新" if result.get("updated") else "无变化")
+            table.add_row([name, email, status])
+
+        print(table)
+    else:
+        print("返回格式不匹配：", resp.text)
+
+except requests.exceptions.RequestException as e:
+    print("请求失败：", e)
+except ValueError:
+    print("解析 JSON 失败：", resp.text)
+```
 
 ---
 
 ## Workflow
 
-Run steps **in order** after new registrations arrive. When pending users exist, step 1 writes `pre_import_snapshot.json` (remote emails **before** import); `reconcile-accounts` uses it to decide whether each system's password belongs in the notification email.
+Run steps **in order** after new registrations arrive. `provision-accounts` runs the full path below after confirmation.
 
-Re-running step 1 is safe (ledger upserts by email). If an email already existed in NetBird or GSAD before import, the notification **omits that system's password**.
+```mermaid
+flowchart TB
+  Input["export.csv"]
 
-### 1. Prepare
+  subgraph auto ["provision-accounts recommended"]
+    P1["prepare"]
+    P2["preview + confirm"]
+    P3["netbird import"]
+    P4["gsad-import-accounts"]
+    P5["reconcile"]
+    P6["notify --send"]
+    P1 --> P2 --> P3 --> P4 --> P5 --> P6
+  end
 
-When pending users exist, this step captures remote emails and writes `pre_import_snapshot.json` for later password inclusion decisions.
+  subgraph manual ["Manual steps equivalent"]
+    M1["prepare-accounts"]
+    M2["netbird-manage import"]
+    M3["gsad-import-accounts"]
+    M4["reconcile-accounts"]
+    M5["notify-accounts --send"]
+    M1 --> M2 --> M3 --> M4 --> M5
+  end
 
-```bash
-uv run --project account_prepare prepare-accounts \
-  --input data_collect/data/export.csv
+  Input --> P1
+  Input --> M1
 ```
 
-### 2. NetBird delta import
+When pending users exist, **prepare** writes `pre_import_snapshot.json` (remote emails before import). **Reconcile** compares against it to set `include_*_password` flags — emails that already existed in NetBird or GSAD before import do not receive that system's password in the notification.
 
-Existing NetBird emails are skipped automatically.
+- Re-running prepare is safe (ledger upserts by email).
+- Existing GSAD emails are upserted (profile fields including `linux_username`; login password is not reset).
+- Existing NetBird emails are skipped automatically on import.
 
-```bash
-uv run --project netbird-manage user-manage import \
-  -f data/account_prepare/netbird_import_delta.csv \
-  --resolve-group-names
-```
+1. **Prepare** — upsert ledger, export delta CSVs; capture pre-import snapshot when pending:
 
-### 3. GSAD user import
+   ```bash
+   uv run --project account_prepare prepare-accounts --input data_collect/data/export.csv
+   ```
 
-Programmatic import via the admin API (recommended):
+2. **NetBird import** — delta rows only:
 
-```bash
-uv run --project account_prepare gsad-import-accounts \
-  -f data/account_prepare/gsad_users_delta.csv
-```
+   ```bash
+   uv run --project netbird-manage user-manage import \
+     -f data/account_prepare/netbird_import_delta.csv --resolve-group-names
+   ```
 
-`provision-accounts` runs this step automatically after confirmation.
+3. **GSAD import** — admin API (also run by `provision-accounts`):
 
-Existing GSAD emails are upserted (profile fields including `linux_username`; login password is not reset).
+   ```bash
+   uv run --project account_prepare gsad-import-accounts \
+     -f data/account_prepare/gsad_users_delta.csv
+   ```
 
-### 4. Reconcile
+4. **Reconcile** — sync ledger status from NetBird API and GSAD Postgres:
 
-Sync ledger status from NetBird API and GSAD Postgres:
+   ```bash
+   uv run --project account_prepare reconcile-accounts
+   ```
 
-```bash
-uv run --project account_prepare reconcile-accounts
-```
+5. **Notify** — email users complete in both systems and not yet notified:
 
-### 5. Notify
-
-Email users who are complete in both systems and not yet notified.
-
-```bash
-uv run --project account_prepare notify-accounts --send
-```
-
-### Preview and debug
-
-```bash
-# Preview the full provisioning flow (prepare + delta summary + NetBird dry-run)
-uv run --project account_prepare provision-accounts \
-  --input data_collect/data/export.csv --preview-only
-
-# Non-interactive provisioning
-uv run --project account_prepare provision-accounts \
-  --input data_collect/data/export.csv --yes
-
-# Provision without sending notification emails
-uv run --project account_prepare provision-accounts \
-  --input data_collect/data/export.csv --yes --skip-notify
-
-# Preview NetBird import changes (no writes)
-uv run --project netbird-manage user-manage import \
-  -f data/account_prepare/netbird_import_delta.csv --dry-run
-
-# Print notification email bodies to the terminal
-uv run --project account_prepare notify-accounts --print
-
-# Exercise send path without delivering mail
-uv run --project account_prepare notify-accounts --send --dry-run
-
-# Run reconcile immediately after prepare
-uv run --project account_prepare prepare-accounts \
-  --input data_collect/data/export.csv --reconcile
-```
+   ```bash
+   uv run --project account_prepare notify-accounts --send
+   ```
 
 ---
 
-## Outputs (`data/account_prepare/`)
+## Artifacts
+
+All paths under `data/account_prepare/`:
 
 | File | Type | Purpose |
 | --- | --- | --- |
@@ -253,14 +284,14 @@ uv run --project account_prepare prepare-accounts \
 
 ---
 
-## Environment
+## Configuration
 
 Operator config in [`.env.example`](../.env.example) → `.env`; secrets in [`.env.secrets.example`](../.env.secrets.example) → `.env.secrets` (stack secrets via [`secret.sh`](../utils/secret.sh)). `account_prepare` commands load both from repo root automatically.
 
 > [!NOTE]
 > Put tokens and SMTP passwords in `.env.secrets`. Avoid `--token` or inline secrets on the command line — they can appear in shell history and process listings. (`reconcile-accounts` accepts `--token` from netbird-manage; `prepare-accounts` reads `NETBIRD_TOKEN` from env only.)
 >
-> **`netbird-manage` (workflow step 2):** run from **repo root** so it picks up repo-root `.env` and `.env.secrets`. It does not read `account_prepare`'s paths — only the current working directory. Confirm the token is in `.env.secrets` (not `.env.secrets.example`) and non-empty:
+> **`netbird-manage` (workflow step 2):** run from **repo root** so it picks up repo-root `.env` and `.env.secrets`. Confirm the token is in `.env.secrets` (not `.env.secrets.example`) and non-empty:
 >
 > ```bash
 > grep '^NETBIRD_TOKEN=' .env.secrets
@@ -269,7 +300,7 @@ Operator config in [`.env.example`](../.env.example) → `.env`; secrets in [`.e
 | Variable | File | Required for | Notes |
 | --- | --- | --- | --- |
 | `NETBIRD_TOKEN` | `.env.secrets` | prepare (when pending), reconcile, provision | NetBird PAT |
-| `NETBIRD_API_BASE` | `.env` | self-hosted NetBird | **Must include scheme**, e.g. `https://netbird.example.com` |
+| `NETBIRD_API_BASE` | `.env` | self-hosted NetBird | Full URL with scheme, e.g. `https://netbird.example.com` |
 | `GSAD_PUBLIC_URL` | `.env` | notify, provision, gsad-import | Full GSAD login URL; API origin is derived from this host |
 | `GSAD_ADMIN_EMAIL` | `.env.secrets` | provision, gsad-import | GSAD admin account for API import |
 | `GSAD_ADMIN_PASSWORD` | `.env.secrets` | provision, gsad-import | GSAD admin password for API import |
@@ -279,21 +310,15 @@ Operator config in [`.env.example`](../.env.example) → `.env`; secrets in [`.e
 | `SMTP_FROM` | `.env` | notify `--send` (optional) | Defaults to `SMTP_USER`; set only when the visible From address differs |
 | `SMTP_PORT`, `SMTP_SSL`, `SMTP_USE_TLS`, `SMTP_DELAY_SECONDS` | `.env` | notify `--send` (optional) | See [`.env.example`](../.env.example) |
 
-> [!TIP]
-> For self-hosted NetBird, set `NETBIRD_API_BASE` to the full API URL including `https://` or `http://` — a hostname alone is not enough.
-
 ---
 
-## Tests
+## Development
 
 Run before commit or release:
 
 ```bash
 cd account_prepare
 
-# Unit tests
 uv run pytest
-
-# Lint and static type checks
 uv run ruff check && uv run ty check
 ```
