@@ -105,7 +105,11 @@ git pull && git submodule update --init --recursive && \
   ./utils/deploy-prod.sh --no-admin
 ```
 
-Use the same deploy flags as the initial install (e.g. `--external`) if this is a fresh clone without `.gsad-compose-mode`.
+After the first deploy, stack mode is stored in `.gsad-compose-mode`; upgrades reuse it automatically (same as `./utils/gsad-compose.sh`). Use explicit flags to override or on a **fresh clone without that file**:
+
+- **Bundled Traefik (default):** no flag, or `./utils/deploy-prod.sh --prod`
+- **External edge Traefik:** `./utils/deploy-prod.sh --external` (required on first deploy; see [docs/external-traefik.md](docs/external-traefik.md))
+- **Local HTTP:** `./utils/deploy-prod.sh --local`
 
 ### Agent upgrade on GPU hosts
 
@@ -126,7 +130,7 @@ Stop the stack (containers only; data volumes kept):
 ```
 
 > [!NOTE]
-> Stack mode is recorded in `.gsad-compose-mode` when you deploy. `./utils/gsad-compose.sh` reads it automatically; pass `--local` / `--external` / `--dev` only to override.
+> Stack mode is recorded in `.gsad-compose-mode` when you deploy. `./utils/gsad-compose.sh` and `./utils/deploy-prod.sh` read it automatically when no mode flag is passed; pass `--local` / `--external` / `--prod` to override.
 
 To remove named volumes (including PostgreSQL data), add `-v`. See [docs/local-prod.md](docs/local-prod.md) for a local reset example.
 

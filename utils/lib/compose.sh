@@ -61,6 +61,13 @@ gsad_resolve_compose_mode() {
   GSAD_COMPOSE_MODE=prod
 }
 
+gsad_normalize_compose_mode_for_deploy() {
+  if [[ "${GSAD_COMPOSE_MODE}" == dev ]]; then
+    printf 'deploy-prod: WARNING: .gsad-compose-mode is dev; using prod for deploy\n' >&2
+    GSAD_COMPOSE_MODE=prod
+  fi
+}
+
 _gsad_compose_file_args() {
   GSAD_COMPOSE_FILE_ARGS=()
 

@@ -7,6 +7,9 @@
 # First login requires an admin user: set ADMIN_EMAIL on deploy, or run create-prod-admin.sh
 # immediately after deploy.
 #
+# Stack mode: --local / --external / --prod flags override everything; otherwise reads
+# .gsad-compose-mode (written by a prior deploy), then defaults to prod.
+#
 # Usage:
 #   ./deploy-prod.sh
 #   ./deploy-prod.sh --local
@@ -26,6 +29,7 @@
 # @help-options-begin
 #   --local                 local-prod HTTP stack (localhost)
 #   --external              prod stack using an existing edge Traefik (no bundled Traefik)
+#   --prod                  bundled Traefik prod stack (override persisted mode)
 #   --no-build              skip image build on up
 #   --no-admin              skip create-prod-admin.sh
 #   -h, --help              show help
@@ -37,6 +41,7 @@ LOCAL_MODE=0
 EXTERNAL_MODE=0
 DO_BUILD=1
 DO_ADMIN=1
+GSAD_COMPOSE_MODE_SET=""
 
 usage() {
   awk '/^# @help-begin$/{f=1; next} /^# @help-end$/{f=0} f' "$0"
@@ -45,10 +50,23 @@ usage() {
   exit 0
 }
 
+set_compose_mode_from_flag() {
+  local flag="$1"
+  local mode="$2"
+  if [[ -n "$GSAD_COMPOSE_MODE_SET" && "$GSAD_COMPOSE_MODE_SET" != "$flag" ]]; then
+    printf 'deploy-prod: ERROR: --%s and --%s are mutually exclusive\n' \
+      "$GSAD_COMPOSE_MODE_SET" "$flag" >&2
+    exit 1
+  fi
+  GSAD_COMPOSE_MODE="$mode"
+  GSAD_COMPOSE_MODE_SET="$flag"
+}
+
 for arg in "$@"; do
   case "$arg" in
-    --local) LOCAL_MODE=1 ;;
-    --external) EXTERNAL_MODE=1 ;;
+    --local) set_compose_mode_from_flag local local ;;
+    --external) set_compose_mode_from_flag external external ;;
+    --prod) set_compose_mode_from_flag prod prod ;;
     --no-build) DO_BUILD=0 ;;
     --no-admin) DO_ADMIN=0 ;;
     -h|--help) usage ;;
@@ -56,23 +74,27 @@ for arg in "$@"; do
   esac
 done
 
-if [[ "$LOCAL_MODE" -eq 1 && "$EXTERNAL_MODE" -eq 1 ]]; then
-  printf 'deploy-prod: ERROR: --local and --external are mutually exclusive\n' >&2
-  exit 1
-fi
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GSAD_REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-GSAD_COMPOSE_MODE=prod
-if [[ "$LOCAL_MODE" -eq 1 ]]; then
-  GSAD_COMPOSE_MODE=local
-elif [[ "$EXTERNAL_MODE" -eq 1 ]]; then
-  GSAD_COMPOSE_MODE=external
-fi
-export GSAD_COMPOSE_MODE
 
 # shellcheck source=lib/compose.sh
 source "${SCRIPT_DIR}/lib/compose.sh"
+
+gsad_resolve_compose_mode
+gsad_normalize_compose_mode_for_deploy
+export GSAD_COMPOSE_MODE
+
+LOCAL_MODE=0
+EXTERNAL_MODE=0
+case "${GSAD_COMPOSE_MODE}" in
+  local) LOCAL_MODE=1 ;;
+  external) EXTERNAL_MODE=1 ;;
+  prod) ;;
+  *)
+    printf 'deploy-prod: ERROR: unsupported deploy mode: %s\n' "${GSAD_COMPOSE_MODE}" >&2
+    exit 1
+    ;;
+esac
 
 log() { printf 'deploy-prod: %s\n' "$*"; }
 die() { printf 'deploy-prod: ERROR: %s\n' "$*" >&2; exit 1; }

@@ -126,7 +126,11 @@ If the internal path returns **401** or **405**, traffic may be reaching the bac
 
 ## Upgrade
 
+After the first deploy with `--external`, mode is stored in `.gsad-compose-mode`. Upgrades can omit the flag:
+
 ```bash
 git pull && git submodule update --init --recursive && \
-  ./utils/deploy-prod.sh --external --no-admin
+  ./utils/deploy-prod.sh --no-admin
 ```
+
+Use `./utils/deploy-prod.sh --external --no-admin` on a fresh clone (no mode file) or to override persisted mode explicitly.
