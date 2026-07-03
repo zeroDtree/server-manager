@@ -7,6 +7,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from prettytable import PrettyTable
+
 from account_prepare.gsad_client import GsadClient, GsadClientError, UserImportResult
 from account_prepare.ledger import Ledger
 from account_prepare.paths import (
@@ -22,12 +24,26 @@ from account_prepare.reconcile import run_reconcile
 
 
 @dataclass(frozen=True)
+class GsadPreviewRow:
+    email: str
+    display_name: str
+    linux_username: str
+
+
+@dataclass(frozen=True)
+class NetbirdPreviewRow:
+    email: str
+    name: str
+
+
+@dataclass(frozen=True)
 class DeltaPreview:
     gsad_pending: int
     netbird_pending: int
     notify_ready: int
-    gsad_sample: tuple[str, ...]
-    netbird_sample: tuple[str, ...]
+    gsad_rows: tuple[GsadPreviewRow, ...]
+    netbird_rows: tuple[NetbirdPreviewRow, ...]
+
 
 
 def count_csv_data_rows(path: Path) -> int:
@@ -43,43 +59,77 @@ def load_delta_preview(*, data_dir: Path, ledger_path: Path) -> DeltaPreview:
     gsad_delta = data_dir / "gsad_users_delta.csv"
     netbird_delta = data_dir / "netbird_import_delta.csv"
 
-    gsad_emails: list[str] = []
+    gsad_entries: list[GsadPreviewRow] = []
     if gsad_delta.is_file():
         with gsad_delta.open(newline="", encoding="utf-8") as handle:
             reader = csv.DictReader(handle)
-            gsad_emails = [row["email"] for row in reader if row.get("email")]
+            for row in reader:
+                email = (row.get("email") or "").strip()
+                if email:
+                    gsad_entries.append(
+                        GsadPreviewRow(
+                            email=email,
+                            display_name=(row.get("display_name") or "").strip(),
+                            linux_username=(row.get("linux_username") or "").strip(),
+                        )
+                    )
 
-    netbird_emails: list[str] = []
+    netbird_entries: list[NetbirdPreviewRow] = []
     if netbird_delta.is_file():
         with netbird_delta.open(newline="", encoding="utf-8") as handle:
             reader = csv.DictReader(handle)
-            netbird_emails = [row["email"] for row in reader if row.get("email")]
+            for row in reader:
+                email = (row.get("email") or "").strip()
+                if email:
+                    netbird_entries.append(
+                        NetbirdPreviewRow(
+                            email=email,
+                            name=(row.get("name") or "").strip(),
+                        )
+                    )
 
     with Ledger(ledger_path) as ledger:
         notify_ready = len(ledger.list_notify_ready())
 
     return DeltaPreview(
-        gsad_pending=len(gsad_emails),
-        netbird_pending=len(netbird_emails),
+        gsad_pending=len(gsad_entries),
+        netbird_pending=len(netbird_entries),
         notify_ready=notify_ready,
-        gsad_sample=tuple(gsad_emails[:5]),
-        netbird_sample=tuple(netbird_emails[:5]),
+        gsad_rows=tuple(gsad_entries),
+        netbird_rows=tuple(netbird_entries),
     )
+
+
+def _left_aligned_table(field_names: list[str]) -> PrettyTable:
+    table = PrettyTable()
+    table.field_names = field_names
+    table.align = "l"
+    return table
 
 
 def print_preview(preview: DeltaPreview, *, data_dir: Path) -> None:
     print("Provision preview")
-    print(f"  GSAD pending:     {preview.gsad_pending}")
-    print(f"  NetBird pending:  {preview.netbird_pending}")
-    print(f"  Notify ready now: {preview.notify_ready}")
-    if preview.gsad_pending:
-        print(f"  GSAD delta file:  {data_dir / 'gsad_users_delta.csv'}")
-        if preview.gsad_sample:
-            print(f"  GSAD sample:      {', '.join(preview.gsad_sample)}")
-    if preview.netbird_pending:
-        print(f"  NetBird delta:    {data_dir / 'netbird_import_delta.csv'}")
-        if preview.netbird_sample:
-            print(f"  NetBird sample:   {', '.join(preview.netbird_sample)}")
+
+    summary = _left_aligned_table(["Metric", "Count"])
+    summary.align["Count"] = "r"
+    summary.add_row(["GSAD pending", preview.gsad_pending])
+    summary.add_row(["NetBird pending", preview.netbird_pending])
+    summary.add_row(["Notify ready now", preview.notify_ready])
+    print(summary)
+
+    if preview.gsad_rows:
+        print(f"\nGSAD delta: {data_dir / 'gsad_users_delta.csv'}")
+        gsad_table = _left_aligned_table(["Name", "Email", "Linux username"])
+        for row in preview.gsad_rows:
+            gsad_table.add_row([row.display_name, row.email, row.linux_username])
+        print(gsad_table)
+
+    if preview.netbird_rows:
+        print(f"\nNetBird delta: {data_dir / 'netbird_import_delta.csv'}")
+        netbird_table = _left_aligned_table(["Name", "Email"])
+        for row in preview.netbird_rows:
+            netbird_table.add_row([row.name, row.email])
+        print(netbird_table)
 
 
 def prompt_confirm() -> bool:

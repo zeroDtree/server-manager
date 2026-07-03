@@ -9,25 +9,40 @@ from account_prepare.gsad_client import UserImportError, UserImportResult
 from account_prepare.ledger import Ledger, SpreadsheetRow
 from account_prepare.paths import REPO_ROOT
 from account_prepare.provision import (
+    DeltaPreview,
+    GsadPreviewRow,
+    NetbirdPreviewRow,
     load_delta_preview,
+    print_preview,
     prompt_confirm,
     run_provision,
 )
 
 
-def _write_delta_csv(path: Path, emails: list[str]) -> None:
+def _write_gsad_delta_csv(path: Path, entries: list[tuple[str, str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = ["email,linux_username,display_name,student_id,cohort,initial_password"]
-    for index, email in enumerate(emails):
-        lines.append(f"{email},user_{index},Name,,,password1234")
+    for index, (email, name) in enumerate(entries):
+        lines.append(f"{email},user_{index},{name},,,password1234")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _write_netbird_delta_csv(path: Path, entries: list[tuple[str, str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = ["email,name,role,password,auto_groups"]
+    for email, name in entries:
+        lines.append(f"{email},{name},user,password1234,client_group")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def test_load_delta_preview_counts_rows(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     ledger_path = data_dir / "registration_ledger.sqlite"
-    _write_delta_csv(data_dir / "gsad_users_delta.csv", ["a@example.com", "b@example.com"])
-    _write_delta_csv(data_dir / "netbird_import_delta.csv", ["a@example.com"])
+    _write_gsad_delta_csv(
+        data_dir / "gsad_users_delta.csv",
+        [("a@example.com", "Alice"), ("b@example.com", "Bob")],
+    )
+    _write_netbird_delta_csv(data_dir / "netbird_import_delta.csv", [("a@example.com", "Alice")])
 
     with Ledger(ledger_path) as ledger:
         ledger.upsert_from_spreadsheet(
@@ -45,7 +60,33 @@ def test_load_delta_preview_counts_rows(tmp_path: Path) -> None:
     preview = load_delta_preview(data_dir=data_dir, ledger_path=ledger_path)
     assert preview.gsad_pending == 2
     assert preview.netbird_pending == 1
-    assert preview.gsad_sample == ("a@example.com", "b@example.com")
+    assert preview.gsad_rows == (
+        GsadPreviewRow(email="a@example.com", display_name="Alice", linux_username="user_0"),
+        GsadPreviewRow(email="b@example.com", display_name="Bob", linux_username="user_1"),
+    )
+    assert preview.netbird_rows == (NetbirdPreviewRow(email="a@example.com", name="Alice"),)
+
+
+def test_print_preview_renders_prettytable(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    preview = DeltaPreview(
+        gsad_pending=1,
+        netbird_pending=1,
+        notify_ready=0,
+        gsad_rows=(
+            GsadPreviewRow(
+                email="a@example.com",
+                display_name="Alice",
+                linux_username="alice",
+            ),
+        ),
+        netbird_rows=(NetbirdPreviewRow(email="a@example.com", name="Alice"),),
+    )
+    print_preview(preview, data_dir=tmp_path / "data")
+    output = capsys.readouterr().out
+    assert "Provision preview" in output
+    assert "Alice" in output
+    assert "a@example.com" in output
+    assert "Linux username" in output
 
 
 def test_prompt_confirm_accepts_yes(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -67,8 +108,8 @@ def test_run_provision_preview_only(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     calls: list[bool] = []
 
     def fake_prepare(argv: list[str]) -> int:
-        _write_delta_csv(data_dir / "gsad_users_delta.csv", ["a@example.com"])
-        _write_delta_csv(data_dir / "netbird_import_delta.csv", ["a@example.com"])
+        _write_gsad_delta_csv(data_dir / "gsad_users_delta.csv", [("a@example.com", "Alice")])
+        _write_netbird_delta_csv(data_dir / "netbird_import_delta.csv", [("a@example.com", "Alice")])
         return 0
 
     def fake_netbird(csv_path: Path, *, dry_run: bool, repo_root: Path = REPO_ROOT) -> int:
@@ -108,7 +149,7 @@ def test_run_provision_cancelled_without_yes(tmp_path: Path, monkeypatch: pytest
     ledger_path = data_dir / "registration_ledger.sqlite"
 
     def fake_prepare(argv: list[str]) -> int:
-        _write_delta_csv(data_dir / "gsad_users_delta.csv", ["a@example.com"])
+        _write_gsad_delta_csv(data_dir / "gsad_users_delta.csv", [("a@example.com", "Alice")])
         return 0
 
     probe_client = MagicMock()
@@ -143,8 +184,8 @@ def test_run_provision_full_pipeline(tmp_path: Path, monkeypatch: pytest.MonkeyP
     order: list[str] = []
 
     def fake_prepare(argv: list[str]) -> int:
-        _write_delta_csv(data_dir / "gsad_users_delta.csv", ["a@example.com"])
-        _write_delta_csv(data_dir / "netbird_import_delta.csv", ["a@example.com"])
+        _write_gsad_delta_csv(data_dir / "gsad_users_delta.csv", [("a@example.com", "Alice")])
+        _write_netbird_delta_csv(data_dir / "netbird_import_delta.csv", [("a@example.com", "Alice")])
         order.append("prepare")
         return 0
 
@@ -201,7 +242,7 @@ def test_run_provision_stops_on_gsad_errors(tmp_path: Path, monkeypatch: pytest.
     ledger_path = data_dir / "registration_ledger.sqlite"
 
     def fake_prepare(argv: list[str]) -> int:
-        _write_delta_csv(data_dir / "gsad_users_delta.csv", ["a@example.com"])
+        _write_gsad_delta_csv(data_dir / "gsad_users_delta.csv", [("a@example.com", "Alice")])
         return 0
 
     def fake_gsad(csv_path: Path, *, client=None) -> UserImportResult:
