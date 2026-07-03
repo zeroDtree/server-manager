@@ -57,7 +57,7 @@ def test_upsert_preserves_passwords(tmp_path: Path) -> None:
     assert second.cohort == "2025"
 
 
-def test_upsert_rejects_linux_username_change(tmp_path: Path) -> None:
+def test_upsert_allows_linux_username_change_and_resets_pending(tmp_path: Path) -> None:
     ledger_path = tmp_path / "ledger.sqlite"
     with Ledger(ledger_path) as ledger:
         ledger.upsert_from_spreadsheet(
@@ -71,18 +71,81 @@ def test_upsert_rejects_linux_username_change(tmp_path: Path) -> None:
                 )
             ]
         )
-        with pytest.raises(ValueError, match="linux_username change"):
-            ledger.upsert_from_spreadsheet(
-                [
-                    SpreadsheetRow(
-                        email="bob@example.com",
-                        display_name="Bob",
-                        linux_username="bob2",
-                        student_id="",
-                        cohort="",
-                    )
-                ]
-            )
+        first = ledger.list_all()[0]
+        first_gsad = first.gsad_password
+        first_netbird = first.netbird_password
+        ledger.mark_netbird_completed({"bob@example.com"}, preexisting_emails={"bob@example.com"})
+        ledger.mark_gsad_completed({"bob@example.com"}, preexisting_emails=set())
+        ledger.mark_notified("bob@example.com")
+        before_change = ledger.list_all()[0]
+        netbird_completed_at = before_change.netbird_completed_at
+
+        ledger.upsert_from_spreadsheet(
+            [
+                SpreadsheetRow(
+                    email="bob@example.com",
+                    display_name="Bob Renamed",
+                    linux_username="bob2",
+                    student_id="",
+                    cohort="",
+                )
+            ]
+        )
+        updated = ledger.list_all()[0]
+
+    assert updated.display_name == "Bob Renamed"
+    assert updated.linux_username == "bob2"
+    assert updated.gsad_status == "pending"
+    assert updated.gsad_completed_at is None
+    assert updated.netbird_status == STATUS_COMPLETED
+    assert updated.netbird_completed_at == netbird_completed_at
+    assert updated.notified_at is None
+    assert updated.netbird_include_password is False
+    assert updated.gsad_include_password is True
+    assert updated.gsad_password == first_gsad
+    assert updated.netbird_password == first_netbird
+
+
+def test_upsert_without_username_change_keeps_status_fields(tmp_path: Path) -> None:
+    ledger_path = tmp_path / "ledger.sqlite"
+    with Ledger(ledger_path) as ledger:
+        ledger.upsert_from_spreadsheet(
+            [
+                SpreadsheetRow(
+                    email="f@example.com",
+                    display_name="F",
+                    linux_username="fuser",
+                    student_id="",
+                    cohort="",
+                )
+            ]
+        )
+        ledger.mark_netbird_completed({"f@example.com"}, preexisting_emails={"f@example.com"})
+        ledger.mark_gsad_completed({"f@example.com"}, preexisting_emails=set())
+        original = ledger.list_all()[0]
+
+        ledger.upsert_from_spreadsheet(
+            [
+                SpreadsheetRow(
+                    email="f@example.com",
+                    display_name="F Updated",
+                    linux_username="fuser",
+                    student_id="s1",
+                    cohort="2026",
+                )
+            ]
+        )
+        updated = ledger.list_all()[0]
+
+    assert updated.display_name == "F Updated"
+    assert updated.student_id == "s1"
+    assert updated.cohort == "2026"
+    assert updated.netbird_status == original.netbird_status
+    assert updated.gsad_status == original.gsad_status
+    assert updated.netbird_completed_at == original.netbird_completed_at
+    assert updated.gsad_completed_at == original.gsad_completed_at
+    assert updated.netbird_include_password == original.netbird_include_password
+    assert updated.gsad_include_password == original.gsad_include_password
 
 
 def test_mark_completed_and_notify_ready(tmp_path: Path) -> None:

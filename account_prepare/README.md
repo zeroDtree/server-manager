@@ -40,6 +40,7 @@ Field semantics: [docs/info.md](../docs/info.md). Column mapping: [`registration
 
 > [!NOTE]
 > Passwords are generated once on first ledger insert (separate GSAD and NetBird values). Re-running `prepare-accounts` preserves existing passwords.
+> `linux_username` can be updated for an existing email. When it changes, only GSAD is moved back to pending and must be re-imported; NetBird status is unchanged. `notified_at` is cleared so the user can be notified again after GSAD completes. Existing password include flags are preserved, so unchanged passwords are not automatically re-emailed.
 
 ---
 

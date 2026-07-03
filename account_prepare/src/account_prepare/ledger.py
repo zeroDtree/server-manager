@@ -106,49 +106,79 @@ class Ledger:
             existing = self._get_row(row.email)
             if existing is None:
                 gsad_password, netbird_password = generate_credential_pair()
-                self._conn.execute(
-                    """
-                    INSERT INTO registration (
-                        email, display_name, linux_username, student_id, cohort,
-                        gsad_password, netbird_password,
-                        netbird_status, gsad_status,
-                        created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        row.email,
-                        row.display_name,
-                        row.linux_username,
-                        row.student_id,
-                        row.cohort,
-                        gsad_password,
-                        netbird_password,
-                        STATUS_PENDING,
-                        STATUS_PENDING,
-                        now,
-                        now,
-                    ),
-                )
+                try:
+                    self._conn.execute(
+                        """
+                        INSERT INTO registration (
+                            email, display_name, linux_username, student_id, cohort,
+                            gsad_password, netbird_password,
+                            netbird_status, gsad_status,
+                            created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            row.email,
+                            row.display_name,
+                            row.linux_username,
+                            row.student_id,
+                            row.cohort,
+                            gsad_password,
+                            netbird_password,
+                            STATUS_PENDING,
+                            STATUS_PENDING,
+                            now,
+                            now,
+                        ),
+                    )
+                except sqlite3.IntegrityError as exc:
+                    raise ValueError(
+                        f"linux_username already in use: {row.linux_username!r}"
+                    ) from exc
                 inserted += 1
                 continue
 
-            if existing.linux_username != row.linux_username:
+            username_changed = existing.linux_username != row.linux_username
+            try:
+                if username_changed:
+                    self._conn.execute(
+                        """
+                        UPDATE registration SET
+                            display_name = ?,
+                            linux_username = ?,
+                            student_id = ?,
+                            cohort = ?,
+                            gsad_status = ?,
+                            gsad_completed_at = NULL,
+                            notified_at = NULL,
+                            updated_at = ?
+                        WHERE email = ?
+                        """,
+                        (
+                            row.display_name,
+                            row.linux_username,
+                            row.student_id,
+                            row.cohort,
+                            STATUS_PENDING,
+                            now,
+                            row.email,
+                        ),
+                    )
+                else:
+                    self._conn.execute(
+                        """
+                        UPDATE registration SET
+                            display_name = ?,
+                            student_id = ?,
+                            cohort = ?,
+                            updated_at = ?
+                        WHERE email = ?
+                        """,
+                        (row.display_name, row.student_id, row.cohort, now, row.email),
+                    )
+            except sqlite3.IntegrityError as exc:
                 raise ValueError(
-                    f"linux_username change not allowed for {row.email}: "
-                    f"{existing.linux_username!r} -> {row.linux_username!r}"
-                )
-
-            self._conn.execute(
-                """
-                UPDATE registration SET
-                    display_name = ?,
-                    student_id = ?,
-                    cohort = ?,
-                    updated_at = ?
-                WHERE email = ?
-                """,
-                (row.display_name, row.student_id, row.cohort, now, row.email),
-            )
+                    f"linux_username already in use: {row.linux_username!r}"
+                ) from exc
             updated += 1
 
         self._conn.commit()
