@@ -13,7 +13,6 @@ from account_prepare.gsad_client import GsadClient, GsadClientError, UserImportR
 from account_prepare.ledger import Ledger
 from account_prepare.paths import (
     DEFAULT_DATA_DIR,
-    DEFAULT_INPUT,
     DEFAULT_LEDGER,
     DEFAULT_MAPPING,
     REPO_ROOT,
@@ -338,8 +337,8 @@ def main(argv: list[str] | None = None) -> int:
         "--input",
         "-i",
         type=Path,
-        default=DEFAULT_INPUT,
-        help=f"Source xlsx or csv (default: {DEFAULT_INPUT})",
+        required=True,
+        help="data_collect export CSV (e.g. data_collect/data/export.csv)",
     )
     parser.add_argument(
         "--mapping",

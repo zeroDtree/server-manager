@@ -8,7 +8,6 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "netbird-manage" },
-    { name = "openpyxl" },
     { name = "prettytable" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
@@ -25,7 +24,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "netbird-manage", directory = "../netbird-manage" },
-    { name = "openpyxl", specifier = ">=3.1.0" },
     { name = "prettytable", specifier = ">=3.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },

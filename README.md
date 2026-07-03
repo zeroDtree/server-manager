@@ -173,8 +173,7 @@ See [`.env.example`](.env.example) and [`.env.secrets.example`](.env.secrets.exa
 - [docs/external-traefik.md](docs/external-traefik.md) — reuse an existing edge Traefik (NetBird, etc.)
 - [docs/agent-psk.md](docs/agent-psk.md) — per-GPU host PSK derivation
 - [docs/backup.md](docs/backup.md) — backup, restore, and log rotation
-- [docs/info.md](docs/info.md) — registration fields and schema reference
-- [account_prepare/README.md](account_prepare/README.md) — spreadsheet onboarding workflow
+- [account_prepare/README.md](account_prepare/README.md) — registration CSV onboarding workflow and field reference
 - [gsad-backend/README.md](gsad-backend/README.md) — API routes, schema, Flyway
 - [server-agent/README.md](server-agent/README.md) — GPU host agent install
 

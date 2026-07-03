@@ -1,4 +1,4 @@
-# Spreadsheet column headers (as in Excel). Normalized when reading xlsx.
+# CSV column headers (data_collect export). Normalized when reading CSV.
 columns:
   email: "邮箱"
   linux_username: "linux账户名"

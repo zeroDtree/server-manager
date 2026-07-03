@@ -4,14 +4,13 @@ import argparse
 import sys
 from pathlib import Path
 
-from netbird_manage.cli.user_manage import load_rows
+from netbird_manage.cli.user_manage import load_rows_csv
 
 from account_prepare.columns import load_column_mapping, validate_registration_rows
 from account_prepare.export import export_csvs
 from account_prepare.ledger import Ledger
 from account_prepare.paths import (
     DEFAULT_DATA_DIR,
-    DEFAULT_INPUT,
     DEFAULT_LEDGER,
     DEFAULT_MAPPING,
     REPO_ROOT,
@@ -27,14 +26,14 @@ def main(argv: list[str] | None = None) -> int:
     load_repo_env()
 
     parser = argparse.ArgumentParser(
-        description="Upsert registration ledger from spreadsheet and export import CSVs.",
+        description="Upsert registration ledger from data_collect CSV and export import CSVs.",
     )
     parser.add_argument(
         "--input",
         "-i",
         type=Path,
-        default=DEFAULT_INPUT,
-        help=f"Source xlsx or csv (default: {DEFAULT_INPUT})",
+        required=True,
+        help="data_collect export CSV (e.g. data_collect/data/export.csv)",
     )
     parser.add_argument(
         "--mapping",
@@ -72,6 +71,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.input.suffix.lower() != ".csv":
+        print(f"Input must be a .csv file: {args.input}", file=sys.stderr)
+        return 2
+
     if not args.input.is_file():
         print(f"Input not found: {args.input}", file=sys.stderr)
         return 2
@@ -83,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        raw_rows = load_rows(str(args.input))
+        raw_rows = load_rows_csv(str(args.input))
     except Exception as e:
         print(f"Failed to read {args.input}: {e}", file=sys.stderr)
         return 2
