@@ -217,6 +217,7 @@ def run_provision(
     preview_only: bool,
     assume_yes: bool,
     netbird_dry_run: bool,
+    skip_notify: bool = False,
     gsad_client: GsadClient | None = None,
 ) -> int:
     import os
@@ -312,10 +313,13 @@ def run_provision(
     if rc != 0:
         return rc
 
-    print("==> notify-accounts --send")
-    rc = run_notify_send(ledger=ledger, data_dir=data_dir)
-    if rc != 0:
-        return rc
+    if skip_notify:
+        print("Skipped notify; run notify-accounts --send when ready.")
+    else:
+        print("==> notify-accounts --send")
+        rc = run_notify_send(ledger=ledger, data_dir=data_dir)
+        if rc != 0:
+            return rc
 
     print("Provision complete.")
     return 0
@@ -382,6 +386,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Pass --dry-run to netbird-manage import during execution",
     )
+    parser.add_argument(
+        "--skip-notify",
+        action="store_true",
+        help="Skip notify-accounts --send after reconcile",
+    )
     args = parser.parse_args(argv)
 
     if not args.input.is_file():
@@ -398,6 +407,7 @@ def main(argv: list[str] | None = None) -> int:
         preview_only=args.preview_only,
         assume_yes=args.yes,
         netbird_dry_run=args.netbird_dry_run,
+        skip_notify=args.skip_notify,
     )
 
 

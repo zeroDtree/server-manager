@@ -1,9 +1,36 @@
-# account_prepare
+# Account prepare
 
 Convert registration data into GSAD and NetBird import CSVs, then email unified credentials. A SQLite **registration ledger** is the source of truth for stable passwords and provisioning status.
 
 > [!WARNING]
 > Do not commit `data/account_prepare/`. It contains plaintext passwords and personal data. The directory is gitignored—do not force-add it.
+
+---
+
+
+## Quick reference (TL;DR)
+
+For experienced operators — run from repo root after new registrations arrive.
+
+**Single command (recommended):** preview pending deltas, confirm, then provision end-to-end.
+
+```bash
+uv run --project account_prepare provision-accounts --input data_collect/data/export.csv
+```
+
+Use `--yes` to skip the confirmation prompt, `--preview-only` to prepare and preview without remote changes, or `--skip-notify` to provision without sending email (then use `notify-accounts --print` / `--send`).
+
+**Manual steps** (still supported):
+
+```bash
+uv run --project account_prepare prepare-accounts --input data_collect/data/export.csv
+uv run --project netbird-manage user-manage import -f data/account_prepare/netbird_import_delta.csv --resolve-group-names
+uv run --project account_prepare gsad-import-accounts -f data/account_prepare/gsad_users_delta.csv
+uv run --project account_prepare reconcile-accounts
+uv run --project account_prepare notify-accounts --send
+```
+
+Omit `--input` when using a manual spreadsheet (`registration.xlsx` in `data/account_prepare/`).
 
 ---
 
@@ -41,32 +68,6 @@ Field semantics: [docs/info.md](../docs/info.md). Column mapping: [`registration
 > [!NOTE]
 > Passwords are generated once on first ledger insert (separate GSAD and NetBird values). Re-running `prepare-accounts` preserves existing passwords.
 > `linux_username` can be updated for an existing email. When it changes, only GSAD is moved back to pending and must be re-imported; NetBird status is unchanged. `notified_at` is cleared so the user can be notified again after GSAD completes. Existing password include flags are preserved, so unchanged passwords are not automatically re-emailed.
-
----
-
-## Quick reference (TL;DR)
-
-For experienced operators — run from repo root after new registrations arrive.
-
-**Single command (recommended):** preview pending deltas, confirm, then provision end-to-end.
-
-```bash
-uv run --project account_prepare provision-accounts --input data_collect/data/export.csv
-```
-
-Use `--yes` to skip the confirmation prompt, or `--preview-only` to prepare and preview without remote changes.
-
-**Manual steps** (still supported):
-
-```bash
-uv run --project account_prepare prepare-accounts --input data_collect/data/export.csv
-uv run --project netbird-manage user-manage import -f data/account_prepare/netbird_import_delta.csv --resolve-group-names
-uv run --project account_prepare gsad-import-accounts -f data/account_prepare/gsad_users_delta.csv
-uv run --project account_prepare reconcile-accounts
-uv run --project account_prepare notify-accounts --send
-```
-
-Omit `--input` when using a manual spreadsheet (`registration.xlsx` in `data/account_prepare/`).
 
 ---
 
@@ -142,6 +143,10 @@ uv run --project account_prepare provision-accounts \
 # Non-interactive provisioning
 uv run --project account_prepare provision-accounts \
   --input data_collect/data/export.csv --yes
+
+# Provision without sending notification emails
+uv run --project account_prepare provision-accounts \
+  --input data_collect/data/export.csv --yes --skip-notify
 
 # Preview NetBird import changes (no writes)
 uv run --project netbird-manage user-manage import \

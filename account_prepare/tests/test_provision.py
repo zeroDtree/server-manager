@@ -235,6 +235,65 @@ def test_run_provision_full_pipeline(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert order == ["prepare", "netbird", "gsad", "reconcile", "notify"]
 
 
+def test_run_provision_skips_notify(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    input_path = tmp_path / "input.csv"
+    input_path.write_text("email\na@example.com\n", encoding="utf-8")
+    data_dir = tmp_path / "data"
+    ledger_path = data_dir / "registration_ledger.sqlite"
+    order: list[str] = []
+
+    def fake_prepare(argv: list[str]) -> int:
+        _write_gsad_delta_csv(data_dir / "gsad_users_delta.csv", [("a@example.com", "Alice")])
+        _write_netbird_delta_csv(data_dir / "netbird_import_delta.csv", [("a@example.com", "Alice")])
+        order.append("prepare")
+        return 0
+
+    def fake_netbird(csv_path: Path, *, dry_run: bool, repo_root: Path = REPO_ROOT) -> int:
+        order.append("netbird")
+        return 0
+
+    def fake_gsad(csv_path: Path, *, client=None) -> UserImportResult:
+        order.append("gsad")
+        return UserImportResult(created=1, updated=0, errors=[])
+
+    def fake_reconcile(ledger, *, base_url, token, data_dir, write_snapshots=True) -> int:
+        order.append("reconcile")
+        return 0
+
+    def fake_notify(*, ledger, data_dir) -> int:
+        order.append("notify")
+        return 0
+
+    probe_client = MagicMock()
+    probe_client.base_url = "https://gsad.example.com"
+
+    monkeypatch.setenv("NETBIRD_TOKEN", "token")
+    monkeypatch.setattr("account_prepare.provision.run_prepare_step", fake_prepare)
+    monkeypatch.setattr("account_prepare.provision.run_netbird_import", fake_netbird)
+    monkeypatch.setattr("account_prepare.provision.run_gsad_import", fake_gsad)
+    monkeypatch.setattr("account_prepare.provision.run_reconcile", fake_reconcile)
+    monkeypatch.setattr("account_prepare.provision.run_notify_send", fake_notify)
+    monkeypatch.setattr(
+        "account_prepare.provision.GsadClient.from_env",
+        lambda: probe_client,
+    )
+
+    rc = run_provision(
+        input_path=input_path,
+        mapping=tmp_path / "mapping.yaml",
+        ledger=ledger_path,
+        data_dir=data_dir,
+        auto_groups="client_group",
+        role="user",
+        preview_only=False,
+        assume_yes=True,
+        netbird_dry_run=False,
+        skip_notify=True,
+    )
+    assert rc == 0
+    assert order == ["prepare", "netbird", "gsad", "reconcile"]
+
+
 def test_run_provision_stops_on_gsad_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     input_path = tmp_path / "input.csv"
     input_path.write_text("email\na@example.com\n", encoding="utf-8")
