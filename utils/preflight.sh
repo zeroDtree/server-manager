@@ -194,7 +194,7 @@ if [[ -f "$ENV_FILE" && "$host" == "gsad.example.com" ]]; then
 fi
 
 if [[ -f "$SECRETS_FILE" ]]; then
-  for key in DB_PASSWORD REDIS_PASSWORD JWT_SECRET AGENT_MASTER_SECRET CREDENTIALS_ENCRYPTION_KEY; do
+  for key in DB_PASSWORD REDIS_PASSWORD JWT_SECRET CREDENTIALS_ENCRYPTION_KEY; do
     value="$(get_env_value "$key" "$SECRETS_FILE")"
     if is_placeholder_secret "$key" "$value"; then
       warn "${key} is unset or placeholder in .env.secrets — run ./utils/secret.sh"

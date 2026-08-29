@@ -228,7 +228,7 @@ flowchart TB
 When pending users exist, **prepare** writes `pre_import_snapshot.json` (remote emails before import). **Reconcile** compares against it to set `include_*_password` flags — emails that already existed in NetBird or GSAD before import do not receive that system's password in the notification.
 
 - Re-running prepare is safe (ledger upserts by email).
-- Existing GSAD emails are upserted (profile fields including `linux_username`; login password is not reset).
+- Existing GSAD emails are upserted (profile fields including `linux_username`, and login password).
 - Existing NetBird emails are skipped automatically on import.
 
 1. **Prepare** — upsert ledger, export delta CSVs; capture pre-import snapshot when pending:

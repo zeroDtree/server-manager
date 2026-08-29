@@ -199,8 +199,8 @@ log "deploy complete"
 printf '%s\n' \
   "" \
   "  UI: ${ui_url}" \
-  "  Next: Admin → Import servers → docs/agent-psk.md → server-agent/" \
-  "        Admin → Import users" \
+  "  Next: Admin → Server management (server_id + agent_psk) → server-agent/" \
+  "        Admin → User management" \
   "        Restrict BACKEND_AGENT_PORT to GPU/VPN CIDR" \
   "        Backups: docs/backup.md" \
   ""

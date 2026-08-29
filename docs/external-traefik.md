@@ -2,32 +2,31 @@
 
 ## When to use
 
-Use this mode when the host already runs an edge Traefik on **80/443** (e.g. NetBird `<edge-traefik-container>`). GSAD starts **postgres**, **redis**, **backend**, and **frontend** only; your Traefik routes HTTPS to them via Docker labels.
-
-| Mode                            | Traefik                         | Typical use                                                              |
-| ------------------------------- | ------------------------------- | ------------------------------------------------------------------------ |
-| Default prod (`deploy-prod.sh`) | GSAD bundled Traefik on 80/443  | Dedicated host, Let's Encrypt via GSAD                                   |
-| `--external`                    | Your existing edge Traefik      | NetBird or other edge proxy already on 80/443                            |
-| `--local`                       | GSAD bundled Traefik on port 80 | Local HTTP testing — **conflicts** with an edge Traefik on the same host |
+Use this mode when the host already runs an edge Traefik on **80/443**
 
 ## Architecture
 
 ```mermaid
 flowchart LR
   Browser["Browser HTTPS :443"]
-  EdgeTraefik["Edge Traefik"]
-  Frontend["gsad frontend"]
-  Backend["gsad backend"]
   Agent["GPU agent HTTP :8080"]
 
-  Browser --> EdgeTraefik
-  EdgeTraefik -->|"Host GSAD_PUBLIC_HOST /"| Frontend
-  EdgeTraefik -->|"Host GSAD_PUBLIC_HOST /api"| Backend
-  EdgeTraefik -->|"PathPrefix /api/internal blocked"| Noop["noop@internal 404"]
+  subgraph traefik [Traefik]
+    BundledTraefik["Without Edge: GSAD bundled Traefik :80/:443"]
+    EdgeTraefik["With Edge: Existing Edge Traefik"]
+  end
+
+  Frontend["gsad frontend"]
+  Backend["gsad backend"]
+  Noop["noop@internal 404"]
+
+  Browser --> traefik
+  traefik -->|"/api"| Backend
+  traefik -->|"/"| Frontend
+  traefik -->|"/api/internal blocked"| Noop
   Agent -->|"BACKEND_AGENT_BIND:8080"| Backend
 ```
 
-Agent traffic is unchanged: GPU hosts call `http://<central-host>:8080/api/internal/*` directly — never through Traefik. Configure `BACKEND_AGENT_BIND` and firewall rules in [Agent network and security](agent-network.md).
 
 ## Prerequisites
 
@@ -38,15 +37,68 @@ Your edge Traefik must:
 - Expose HTTPS on an entrypoint matching `TRAEFIK_ENTRYPOINT` (default `websecure`)
 - Use a certificate resolver matching `TRAEFIK_CERT_RESOLVER` (default `letsencrypt`)
 
-Before deploy:
+Example Traefik configuration:
+```yaml
+services:
+  # Traefik reverse proxy (automatic TLS via Let's Encrypt)
+  traefik:
+    image: traefik:v3.6
+    container_name: netbird-traefik
+    restart: unless-stopped
+    env_file:
+      - ./traefik.env
+    networks:
+      netbird:
+        ipv4_address: 172.30.0.10
+    command:
+      # Logging
+      - "--log.level=INFO"
+      - "--accesslog=true"
+      # Docker provider
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=netbird"
+      # Entrypoints
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.allowACMEByPass=true"
+      # Disable timeouts for long-lived gRPC streams
+      - "--entrypoints.websecure.transport.respondingTimeouts.readTimeout=0"
+      - "--entrypoints.websecure.transport.respondingTimeouts.writeTimeout=0"
+      - "--entrypoints.websecure.transport.respondingTimeouts.idleTimeout=0"
+      # HTTP to HTTPS redirect
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      # Let's Encrypt ACME
+      - "--certificatesresolvers.letsencrypt.acme.email=your_acme_email@example.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.dnschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=tencentcloud"
+      - "--certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=119.29.29.29:53"
+      # gRPC transport settings
+      - "--serverstransport.forwardingtimeouts.responseheadertimeout=0s"
+      - "--serverstransport.forwardingtimeouts.idleconntimeout=0s"
 
-- Copy [`.env.example`](../.env.example) to `.env` and set values below
-- Point DNS for `GSAD_PUBLIC_HOST` at the host running edge Traefik
-- Confirm `TRAEFIK_EXTERNAL_NETWORK` matches your edge Traefik's `--providers.docker.network` — `preflight.sh --external` does **not** verify the Docker network exists
+    ports:
+      - '443:443'
+      - '80:80'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - netbird_traefik_letsencrypt:/letsencrypt
 
-## Configure `.env`
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500m"
+        max-file: "2"
+```
 
-### Traefik (external mode)
+
+## Deploy with External Traefik
+
+### Prepare `.env`
+
+Copy [`.env.example`](../.env.example) to `.env` and set values below
 
 ```ini
 GSAD_PUBLIC_HOST=gsad.example.com
@@ -58,79 +110,12 @@ TRAEFIK_CERT_RESOLVER=letsencrypt        # match your Traefik cert resolver
 
 See [`.env.example`](../.env.example) for defaults. `ACME_EMAIL` may stay in `.env`; external mode does not use it — TLS is handled by your edge Traefik.
 
-### Agent access (all prod modes)
+Point DNS for `GSAD_PUBLIC_HOST` at the host running edge Traefik
 
-Set `BACKEND_AGENT_BIND`, `BACKEND_AGENT_VPN_CIDRS`, and restrict `:8080` to GPU hosts — see [Agent network and security](agent-network.md).
+Confirm `TRAEFIK_EXTERNAL_NETWORK` matches your edge Traefik's `--providers.docker.network`
 
-### NetBird reference
-
-Typical NetBird Traefik settings that work with GSAD defaults:
-
-| NetBird Traefik                          | GSAD `.env`                         |
-| ---------------------------------------- | ----------------------------------- |
-| `--providers.docker.network=netbird`     | `TRAEFIK_EXTERNAL_NETWORK=netbird`  |
-| `--entrypoints.websecure.address=:443`   | `TRAEFIK_ENTRYPOINT=websecure`      |
-| `--certificatesresolvers.letsencrypt...` | `TRAEFIK_CERT_RESOLVER=letsencrypt` |
-
-DNS ACME on the edge (via your DNS provider) is fine — GSAD only needs `Host()` router labels.
-
-### Find the Docker network name
-
-```bash
-docker inspect <edge-traefik-container> --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}'
-```
-
-## Deploy
-
-`deploy-prod.sh --external` runs preflight, [`secret.sh`](../utils/secret.sh) (creates `.env.secrets` if needed), compose up, backend health wait, and optional first admin.
+### Deploy
 
 ```bash
 ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh --external
 ```
-
-Run preflight alone to check config before deploy:
-
-```bash
-./utils/preflight.sh --external
-```
-
-If you skipped `ADMIN_EMAIL` on deploy:
-
-```bash
-ADMIN_EMAIL=admin@example.com ./utils/create-prod-admin.sh --external
-```
-
-## Verify
-
-Check running containers — expect **postgres**, **redis**, **backend**, **frontend**; no GSAD **traefik** container:
-
-```bash
-./utils/gsad-compose.sh ps
-```
-
-Routing and security:
-
-```bash
-curl -Ik "https://${GSAD_PUBLIC_HOST}/"
-curl -Ik "https://${GSAD_PUBLIC_HOST}/api/internal/servers/provision/pending"
-```
-
-Expected results:
-
-| Request                                        | Expected           | Meaning                                                     |
-| ---------------------------------------------- | ------------------ | ----------------------------------------------------------- |
-| `https://${GSAD_PUBLIC_HOST}/`                 | **200** or **302** | UI reachable via edge Traefik                               |
-| `https://${GSAD_PUBLIC_HOST}/api/internal/...` | **404**            | Blocked by `gsad-block` (`noop@internal`) — not the backend |
-
-If the internal path returns **401** or **405**, traffic may be reaching the backend on HTTPS — check edge Traefik picked up the `gsad-block` labels and `TRAEFIK_ENTRYPOINT` / `TRAEFIK_CERT_RESOLVER` match your edge config.
-
-## Upgrade
-
-After the first deploy with `--external`, mode is stored in `.gsad-compose-mode`. Upgrades can omit the flag:
-
-```bash
-git pull && git submodule update --init --recursive && \
-  ./utils/deploy-prod.sh --no-admin
-```
-
-Use `./utils/deploy-prod.sh --external --no-admin` on a fresh clone (no mode file) or to override persisted mode explicitly.

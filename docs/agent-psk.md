@@ -1,33 +1,22 @@
 # Agent PSK (per GPU host)
 
-Each GPU agent authenticates with a per-server HMAC derived from the backend-only `AGENT_MASTER_SECRET`. Run [`derive-agent-psk.sh`](../utils/derive-agent-psk.sh) on a trusted machine with a TTY (your laptop or the central host — **not** on GPU agents). The script prompts for the master secret twice; it is never read from env or argv.
+Each GPU agent authenticates with the `AGENT_PSK` stored on that server row. The backend encrypts the value at rest (`CREDENTIALS_ENCRYPTION_KEY`) and compares `X-Agent-PSK` to the decrypted secret.
 
-> [!IMPORTANT]
-> Never deploy `AGENT_MASTER_SECRET` to GPU hosts. Derive per-host `AGENT_PSK` instead.
+Set the PSK when you create or import the server, then copy it into the agent:
 
-From the repo root, after you know `AGENT_SERVER_ID` for that host:
+1. **Admin → Server management** — add a host (`server_id` + `agent_psk`) or import a CSV.
+2. Paste the same `agent_psk` into the agent's `AGENT_PSK` and set `AGENT_SERVER_ID` to `server_id`.
 
-```bash
-./utils/derive-agent-psk.sh <AGENT_SERVER_ID>
+CSV (required columns only; extra columns are ignored). Later duplicate `server_id` rows overwrite:
+
+```csv
+server_id,agent_psk
+gpu-node-01,0123456789abcdef
+gpu-node-02,fedcba9876543210
 ```
 
-Capture stdout for agent config (prints only the derived hex):
+`agent_psk` must be at least 16 characters. The admin UI can generate a 32-byte hex value. Treat export/CSV files as secrets (`chmod 600`, do not commit).
 
-```bash
-AGENT_PSK=$(./utils/derive-agent-psk.sh gpu-node-01)
-```
-
-**Batch (many hosts):** put `server_id` in a CSV (optional extra columns preserved), prompt once for the master secret, get `agent_psk` per row:
-
-```bash
-./utils/derive-agent-psk-batch.sh servers.csv -o agents-with-psk.csv
-chmod 600 agents-with-psk.csv
-```
-
-Stdout-only (redirect yourself): `./utils/derive-agent-psk-batch.sh servers.csv > agents-with-psk.csv`. Output contains secrets — do not commit.
-
-Upload the same CSV via **Admin → Import servers** (`server_id` required; `agent_psk` column is ignored). Use `agent_psk` when deploying agents.
-
-Paste the hex into the agent's `AGENT_PSK` in [`server-agent/deploy/env/common.env`](../server-agent/deploy/env/common.env).
+Re-importing or editing a row replaces that host's PSK. The agent must be updated to match, or requests return 401.
 
 Set `REPORT_API_URL=http://<central-netbird-or-private-ip>:8080` on each agent — see [Agent network and security](agent-network.md).

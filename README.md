@@ -31,9 +31,6 @@ flowchart TB
   Rep -->|"HTTP BACKEND_AGENT_PORT  /api/internal"| Backend
 ```
 
-> [!WARNING]
-> Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts / VPN CIDR only. Exposing the agent port to the public internet is a security risk. See [docs/agent-network.md](docs/agent-network.md).
-
 ## Prerequisites
 
 - Docker and Docker Compose
@@ -42,35 +39,34 @@ flowchart TB
 ## Deploy
 
 1. Clone with submodules:
+    ```bash
+    git clone --recursive git@github.com:zeroDtree/server-manager.git
+    ```
+2. Copy [`.env.example`](.env.example) to `.env`. 
+    ```bash
+    cp .env.example .env
+    ```
+    Edit `GSAD_PUBLIC_HOST`, `ACME_EMAIL`, and `BACKEND_AGENT_BIND`. 
+3. Deploy the stack:
+    ```
+    ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh
+    ```
+4. Log in with the admin from step 2.
+5. **Admin → Server management** — add hosts or import CSV (`server_id`, `agent_psk`); see [agent PSK](docs/agent-psk.md).
+6. Deploy [server-agent](server-agent/) on each GPU host with the same `AGENT_SERVER_ID`=`server_id`, `AGENT_PSK`=`agent_psk`.
+7. **Admin → User management** — import users.
 
-  ```bash
-  git clone --recursive git@github.com:zeroDtree/server-manager.git
-  # or, after a plain clone: git submodule update --init --recursive
-  ```
+## Upgrade
 
-2. Copy [`.env.example`](.env.example) to `.env`. Edit `GSAD_PUBLIC_HOST`, `ACME_EMAIL`, and `BACKEND_AGENT_BIND`. Secrets are generated into `.env.secrets` by [`secret.sh`](utils/secret.sh) during deploy (see [`.env.secrets.example`](.env.secrets.example)):
-
-  ```bash
-  cp .env.example .env
-  ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh
-  ```
-
-   Variants: forgot `ADMIN_EMAIL` → `ADMIN_EMAIL=admin@example.com ./utils/create-prod-admin.sh`. Existing edge Traefik → `--external` ([docs/external-traefik.md](docs/external-traefik.md)). Local HTTP → `--local` ([docs/local-prod.md](docs/local-prod.md)). After the first deploy, upgrades reuse the recorded stack mode.
-
-3. Log in with the admin from step 2.
-
-4. **Admin → Import servers** (CSV); [derive agent PSKs](docs/agent-psk.md); deploy [server-agent](server-agent/) on each GPU host.
-
-5. **Admin → Import users**, or bulk registration via [`account_prepare`](account_prepare/README.md).
-
-## Upgrade and stop
-
+Upgrade Frontend and Backend:
 ```bash
 git pull && git submodule update --init --recursive && \
   ./utils/deploy-prod.sh --no-admin
 ```
 
-Upgrade agents on each GPU host — see [server-agent/README.md](server-agent/README.md).
+Upgrade Agents on each GPU host — see [server-agent/README.md](server-agent/README.md).
+
+## Stop
 
 Stop the stack (containers only; data volumes kept):
 
@@ -78,16 +74,25 @@ Stop the stack (containers only; data volumes kept):
 ./utils/gsad-compose.sh down
 ```
 
+## Deploy modes
+
+The steps above use the default **prod** stack: bundled Traefik on 80/443 with Let's Encrypt.
+Pass a flag on the first deploy for a different stack; later upgrades reuse the mode stored in `.gsad-compose-mode`.
+
+- `--external` — reuse an existing edge Traefik. See [external Traefik](docs/external-traefik.md).
+- `--local` — HTTP on localhost for a prod-like tryout. Conflicts with an edge Traefik on the same host. See [local prod](docs/local-prod.md).
+
+Override a stored mode with `--prod`, `--external`, or `--local`.
+
 ## Docs
 
 - [docs/local-prod.md](docs/local-prod.md) — local tryout without TLS
 - [docs/dev.md](docs/dev.md) — UI & agent development setup
 - [docs/agent-network.md](docs/agent-network.md) — agent HTTP access and firewall rules
-- [docs/external-traefik.md](docs/external-traefik.md) — reuse an existing edge Traefik (NetBird, etc.)
-- [docs/agent-psk.md](docs/agent-psk.md) — per-GPU host PSK derivation
+- [docs/external-traefik.md](docs/external-traefik.md) — reuse an existing edge Traefik
+- [docs/agent-psk.md](docs/agent-psk.md) — per-GPU host stored PSK
 - [docs/backup.md](docs/backup.md) — backup, restore, and log rotation
-- [account_prepare/README.md](account_prepare/README.md) — student registration provisioning (WPS → CSV → NetBird/GSAD → email)
-- [gsad-backend/README.md](gsad-backend/README.md) — API routes, schema, Flyway
 - [server-agent/README.md](server-agent/README.md) — GPU host agent install
+- [account_prepare/README.md](account_prepare/README.md) — student registration provisioning (WPS → CSV → NetBird/GSAD → email)
 
 License: [LICENSE](LICENSE)

@@ -11,7 +11,7 @@
 
 - Traefik blocks `/api/internal/*` on `:443` (by design).
 - Agents use the central host's private/VPN IP (e.g. NetBird), not `https://${GSAD_PUBLIC_HOST}`.
-- Avoids per-host TLS cert management; auth is per-server HMAC derived from `AGENT_MASTER_SECRET`.
+- Avoids per-host TLS cert management; auth is the per-server PSK stored in GSAD (`X-Agent-Server-Id`, `X-Agent-PSK`).
 
 ## Network requirements
 
@@ -27,10 +27,14 @@ BACKEND_AGENT_VPN_CIDRS=100.67.0.0/16
 ```
 
 > [!WARNING]
+> Restrict `BACKEND_AGENT_PORT` (default `:8080`) to GPU hosts / VPN CIDR only. Exposing the agent port to the public internet is a security risk. See [docs/agent-network.md](docs/agent-network.md).
+
+
+> [!WARNING]
 > Do not expose `:8080` to the public internet. HTTP carries agent credentials in cleartext.
 
 > [!IMPORTANT]
-> Use a long random `AGENT_MASTER_SECRET` on the **backend only**; the backend rejects the default value. Per GPU host, derive `AGENT_PSK` — see [Agent PSK (per GPU host)](agent-psk.md). Never put `AGENT_MASTER_SECRET` on GPU hosts.
+> Set a unique `AGENT_PSK` per GPU host in **Admin → Server management** (or the import CSV). Put that value only on the matching agent. See [Agent PSK (per GPU host)](agent-psk.md).
 
 **Agent config:** `REPORT_API_URL=http://<central-vpn-or-private-ip>:8080`
 

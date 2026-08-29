@@ -2,34 +2,22 @@
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import os
 import time
 
 import requests
 
 UPSTREAM_API_URL = os.environ.get("UPSTREAM_API_URL", "http://backend:8080").rstrip("/")
-AGENT_MASTER_SECRET = os.environ.get(
-    "AGENT_MASTER_SECRET", "change-me-AGENT_MASTER_SECRET-at-least-32-chars"
-)
+AGENT_PSK = os.environ.get("AGENT_PSK", "dev-mock-agent-psk-0001")
 POLL_INTERVAL = max(5, int(os.environ.get("PROVISION_POLL_INTERVAL", "10")))
 MOCK_SERVER_COUNT = max(1, int(os.environ.get("MOCK_SERVER_COUNT", "100")))
-
-
-def derive_psk(server_id: str) -> str:
-    return hmac.new(
-        AGENT_MASTER_SECRET.encode("utf-8"),
-        server_id.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
 
 
 def headers(server_id: str) -> dict[str, str]:
     return {
         "Content-Type": "application/json",
         "X-Agent-Server-Id": server_id,
-        "X-Agent-PSK": derive_psk(server_id),
+        "X-Agent-PSK": AGENT_PSK,
     }
 
 
