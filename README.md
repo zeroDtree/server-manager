@@ -2,6 +2,8 @@
 
 GSAD lets you manage SSH access to GPU servers through a web UI. Team members **apply for access**, backend agents **provision Linux accounts** on GPU hosts, and lightweight reporters **send GPU metrics** back to the dashboard. Everything runs in Docker on a single central host, with agents deployed on each GPU machine.
 
+**Docs:** [https://zerodtree.github.io/server-manager/](https://zerodtree.github.io/server-manager/)
+
 ```mermaid
 flowchart TB
   Browser(["Users / Browser"])
@@ -53,7 +55,7 @@ flowchart TB
     ```
 4. Log in with the admin from step 2.
 5. **Admin → Server management** — add hosts or import CSV (`server_id`, `agent_psk`); see [agent PSK](docs/agent-psk.md).
-6. Deploy [server-agent](server-agent/) on each GPU host with the same `AGENT_SERVER_ID`=`server_id`, `AGENT_PSK`=`agent_psk`.
+6. Deploy [server-agent](https://github.com/zeroDtree/server-agent) on each GPU host with the same `AGENT_SERVER_ID`=`server_id`, `AGENT_PSK`=`agent_psk`.
 7. **Admin → User management** — import users.
 
 ## Upgrade
@@ -64,7 +66,7 @@ git pull && git submodule update --init --recursive && \
   ./utils/deploy-prod.sh --no-admin
 ```
 
-Upgrade Agents on each GPU host — see [server-agent/README.md](server-agent/README.md).
+Upgrade Agents on each GPU host — see [server-agent](https://github.com/zeroDtree/server-agent).
 
 ## Stop
 
@@ -86,11 +88,13 @@ Override a stored mode with `--prod`, `--external`, or `--local`.
 
 ## Docs
 
+- [User manual](docs/gsad-user-manual.md)
+- [Admin manual](docs/gsad-admin-manual.md)
 - [Local tryout without TLS](docs/local-prod.md)
-- [UI & agent development setup](docs/dev.md)
+- [Development](docs/dev.md)
 - [Agent HTTP access and firewall rules](docs/agent-network.md)
 - [Reuse an existing edge Traefik](docs/external-traefik.md)
 - [Per-GPU host stored PSK](docs/agent-psk.md)
 - [Backup, restore, and log rotation](docs/backup.md)
-- [GPU host agent install](server-agent/README.md)
-- [Student registration provisioning (WPS → CSV → NetBird/GSAD → email)](account-prepare/README.md)
+- [GPU host agent install](https://github.com/zeroDtree/server-agent)
+- [Student registration provisioning (WPS → CSV → NetBird/GSAD → email)](https://github.com/zeroDtree/account-prepare)
