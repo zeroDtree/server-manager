@@ -31,7 +31,7 @@ In the sidebar, choose **New application**. Optionally enter an SSH login passwo
 
 In the **Target server** dropdown, choose a node (for example `3090_415`), then click **Submit application**.
 
-![Select a target server](./assets/apply_target.png)
+![Select a target server](./assets/apply-target.png)
 
 ### View my applications
 
@@ -57,7 +57,7 @@ For applications in the **Active** status, click the application ID to open the 
 | Username | Linux login account name (from your GSAD profile) |
 | Initial password | Used for the first login; keep it safe |
 
-![Application details](./assets/apply_detail.png)
+![Application details](./assets/apply-detail.png)
 
 ---
 
@@ -83,4 +83,4 @@ While the status is **Authorizing**, use **Cancel application** instead. That on
 
 At the bottom of the sidebar, click **Change password**, enter your current password and a new password, then save. The new password must be at least 8 characters and at most 128 characters. This updates your GSAD console login password only. It does not change server SSH passwords.
 
-![Change password](./assets/change_password.png)
+![Change password](./assets/change-password.png)
