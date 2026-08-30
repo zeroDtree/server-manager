@@ -93,6 +93,6 @@ Override a stored mode with `--prod`, `--external`, or `--local`.
 - [Per-GPU host stored PSK](docs/agent-psk.md)
 - [Backup, restore, and log rotation](docs/backup.md)
 - [GPU host agent install](server-agent/README.md)
-- [Student registration provisioning (WPS → CSV → NetBird/GSAD → email)](account_prepare/README.md)
+- [Student registration provisioning (WPS → CSV → NetBird/GSAD → email)](account-prepare/README.md)
 
 License: [LICENSE](LICENSE)
