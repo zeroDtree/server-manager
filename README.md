@@ -15,8 +15,8 @@ flowchart TB
   end
 
   subgraph data ["Data Layers"]
-    PG[("PostgreSQL 16")]
-    RD[("Redis 7")]
+    PG[("PostgreSQL")]
+    RD[("Redis")]
   end
 
   subgraph agents ["GPU Hosts (Agents)"]
@@ -86,13 +86,13 @@ Override a stored mode with `--prod`, `--external`, or `--local`.
 
 ## Docs
 
-- [docs/local-prod.md](docs/local-prod.md) — local tryout without TLS
-- [docs/dev.md](docs/dev.md) — UI & agent development setup
-- [docs/agent-network.md](docs/agent-network.md) — agent HTTP access and firewall rules
-- [docs/external-traefik.md](docs/external-traefik.md) — reuse an existing edge Traefik
-- [docs/agent-psk.md](docs/agent-psk.md) — per-GPU host stored PSK
-- [docs/backup.md](docs/backup.md) — backup, restore, and log rotation
-- [server-agent/README.md](server-agent/README.md) — GPU host agent install
-- [account_prepare/README.md](account_prepare/README.md) — student registration provisioning (WPS → CSV → NetBird/GSAD → email)
+- [Local tryout without TLS](docs/local-prod.md)
+- [UI & agent development setup](docs/dev.md)
+- [Agent HTTP access and firewall rules](docs/agent-network.md)
+- [Reuse an existing edge Traefik](docs/external-traefik.md)
+- [Per-GPU host stored PSK](docs/agent-psk.md)
+- [Backup, restore, and log rotation](docs/backup.md)
+- [GPU host agent install](server-agent/README.md)
+- [Student registration provisioning (WPS → CSV → NetBird/GSAD → email)](account_prepare/README.md)
 
 License: [LICENSE](LICENSE)
