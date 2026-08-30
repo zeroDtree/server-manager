@@ -43,7 +43,7 @@ def gsad_api_base_from_env() -> str:
     public_url = os.environ.get("GSAD_PUBLIC_URL", "").strip()
     if not public_url:
         raise GsadClientError(
-            "Set GSAD_PUBLIC_URL in repo-root .env (or GSAD_API_BASE for a custom API origin)"
+            "Set GSAD_PUBLIC_URL in account_prepare/.env (or GSAD_API_BASE for a custom API origin)"
         )
 
     parsed = urlparse(public_url)
@@ -59,7 +59,7 @@ def load_admin_credentials() -> tuple[str, str]:
     password = os.environ.get("GSAD_ADMIN_PASSWORD", "").strip()
     if not email or not password:
         raise GsadClientError(
-            "Set GSAD_ADMIN_EMAIL and GSAD_ADMIN_PASSWORD in repo-root .env.secrets"
+            "Set GSAD_ADMIN_EMAIL and GSAD_ADMIN_PASSWORD in account_prepare/.env.secrets"
         )
     return email, password
 

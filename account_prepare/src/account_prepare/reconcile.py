@@ -32,7 +32,7 @@ def run_reconcile(
 ) -> int:
     if not token:
         print(
-            "Missing PAT: set NETBIRD_TOKEN in .env or pass --token",
+            "Missing PAT: set NETBIRD_TOKEN in account_prepare/.env.secrets or pass --token",
             file=sys.stderr,
         )
         return 4

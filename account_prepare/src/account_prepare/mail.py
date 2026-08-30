@@ -195,7 +195,8 @@ def smtp_settings_from_env() -> dict[str, str | int | bool]:
 
     if not host or not user or not password or not from_addr:
         raise ValueError(
-            "Set SMTP in .env: SMTP_HOST, SMTP_USER, SMTP_PASSWORD "
+            "Set SMTP_HOST and SMTP_USER in account_prepare/.env, "
+            "and SMTP_PASSWORD in account_prepare/.env.secrets "
             "(and SMTP_PORT, SMTP_FROM as needed)"
         )
     return {

@@ -41,7 +41,7 @@ def require_gsad_public_url() -> str:
     url = os.environ.get("GSAD_PUBLIC_URL", "").strip()
     if not url:
         raise ValueError(
-            "Set GSAD_PUBLIC_URL in repo-root .env (full GSAD login URL, e.g. "
+            "Set GSAD_PUBLIC_URL in account_prepare/.env (full GSAD login URL, e.g. "
             "https://gsad.example.com/)"
         )
     return url
@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument(
         "--send",
         action="store_true",
-        help="Send email via SMTP (env: SMTP_* in repo-root .env)",
+        help="Send email via SMTP (env: SMTP_* in account_prepare/.env)",
     )
     parser.add_argument(
         "--dry-run",

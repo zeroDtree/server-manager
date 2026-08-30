@@ -1,14 +1,11 @@
 # Account prepare
 
-Convert registration data into GSAD and NetBird import CSVs, then email unified credentials. A SQLite **registration ledger** is the source of truth for stable passwords and provisioning status.
 
-> [!WARNING]
-> Do not commit `data/account_prepare/`. It contains plaintext passwords and personal data. The directory is gitignored—do not force-add it.
 
 ---
 
 ## Overview
-
+Convert registration data into GSAD and NetBird import CSVs, then email unified credentials. A SQLite **registration ledger** is the source of truth for stable passwords and provisioning status.
 End-to-end flow from spreadsheet intake to credential email. The ledger holds generated passwords and tracks `gsad_status`, `netbird_status`, and `notified_at`.
 
 ```mermaid
@@ -54,6 +51,9 @@ flowchart LR
 
 ## Quick start
 
+> [!IMPORTANT]
+> Run all commands from **repo root on the GSAD server**.
+
 Run from **repo root** on the GSAD server after new registrations arrive.
 
 ```bash
@@ -83,9 +83,9 @@ uv run --project account_prepare notify-accounts --send
 
 ## Prerequisites
 
-- Run all commands from **repo root on the GSAD server** (where the stack and Postgres run). `prepare-accounts` and `reconcile-accounts` query GSAD Postgres via `./utils/gsad-compose.sh exec ...`; they fail if the stack is not up.
+
 - **GSAD stack** running (mode recorded in `.gsad-compose-mode` after deploy)
-- **Environment** — repo-root `.env` and `.env.secrets` configured (see [Configuration](#configuration))
+- **Environment** — `account_prepare/.env` and `account_prepare/.env.secrets` configured (see [Configuration](#configuration))
 - **NetBird** — group **`client_group`** must exist before import
 
 One-time dependency sync:
@@ -286,29 +286,34 @@ All paths under `data/account_prepare/`:
 
 ## Configuration
 
-Operator config in [`.env.example`](../.env.example) → `.env`; secrets in [`.env.secrets.example`](../.env.secrets.example) → `.env.secrets` (stack secrets via [`secret.sh`](../utils/secret.sh)). `account_prepare` commands load both from repo root automatically.
+Operator config in [`.env.example`](.env.example) → `account_prepare/.env`; secrets in [`.env.secrets.example`](.env.secrets.example) → `account_prepare/.env.secrets`. Commands load both automatically.
+
+```bash
+cp account_prepare/.env.example account_prepare/.env
+cp account_prepare/.env.secrets.example account_prepare/.env.secrets
+```
 
 > [!NOTE]
-> Put tokens and SMTP passwords in `.env.secrets`. Avoid `--token` or inline secrets on the command line — they can appear in shell history and process listings. (`reconcile-accounts` accepts `--token` from netbird-manage; `prepare-accounts` reads `NETBIRD_TOKEN` from env only.)
+> Put tokens and SMTP passwords in `account_prepare/.env.secrets`. Avoid `--token` or inline secrets on the command line — they can appear in shell history and process listings. (`reconcile-accounts` accepts `--token` from netbird-manage; `prepare-accounts` reads `NETBIRD_TOKEN` from env only.)
 >
-> **`netbird-manage` (workflow step 2):** run from **repo root** so it picks up repo-root `.env` and `.env.secrets`. Confirm the token is in `.env.secrets` (not `.env.secrets.example`) and non-empty:
+> **`netbird-manage` (workflow step 2):** `provision-accounts` loads `account_prepare/.env` and `account_prepare/.env.secrets` and passes them to the subprocess. For a manual `uv run --project netbird-manage ...` from repo root, source both files first (or use `provision-accounts`). Confirm the token is in `account_prepare/.env.secrets` (not `.env.secrets.example`) and non-empty:
 >
 > ```bash
-> grep '^NETBIRD_TOKEN=' .env.secrets
+> grep '^NETBIRD_TOKEN=' account_prepare/.env.secrets
 > ```
 
 | Variable | File | Required for | Notes |
 | --- | --- | --- | --- |
-| `NETBIRD_TOKEN` | `.env.secrets` | prepare (when pending), reconcile, provision | NetBird PAT |
-| `NETBIRD_API_BASE` | `.env` | self-hosted NetBird | Full URL with scheme, e.g. `https://netbird.example.com` |
-| `GSAD_PUBLIC_URL` | `.env` | notify, provision, gsad-import | Full GSAD login URL; API origin is derived from this host |
-| `GSAD_ADMIN_EMAIL` | `.env.secrets` | provision, gsad-import | GSAD admin account for API import |
-| `GSAD_ADMIN_PASSWORD` | `.env.secrets` | provision, gsad-import | GSAD admin password for API import |
-| `NETBIRD_DASHBOARD_URL` | `.env` | notify (optional) | NetBird hint in email |
-| `SMTP_HOST`, `SMTP_USER` | `.env` | notify `--send` | See [`.env.example`](../.env.example) |
-| `SMTP_PASSWORD` | `.env.secrets` | notify `--send` | See [`.env.secrets.example`](../.env.secrets.example) |
-| `SMTP_FROM` | `.env` | notify `--send` (optional) | Defaults to `SMTP_USER`; set only when the visible From address differs |
-| `SMTP_PORT`, `SMTP_SSL`, `SMTP_USE_TLS`, `SMTP_DELAY_SECONDS` | `.env` | notify `--send` (optional) | See [`.env.example`](../.env.example) |
+| `NETBIRD_TOKEN` | `account_prepare/.env.secrets` | prepare (when pending), reconcile, provision | NetBird PAT |
+| `NETBIRD_API_BASE` | `account_prepare/.env` | self-hosted NetBird | Full URL with scheme, e.g. `https://netbird.example.com` |
+| `GSAD_PUBLIC_URL` | `account_prepare/.env` | notify, provision, gsad-import | Full GSAD login URL; API origin is derived from this host |
+| `GSAD_ADMIN_EMAIL` | `account_prepare/.env.secrets` | provision, gsad-import | GSAD admin account for API import |
+| `GSAD_ADMIN_PASSWORD` | `account_prepare/.env.secrets` | provision, gsad-import | GSAD admin password for API import |
+| `NETBIRD_DASHBOARD_URL` | `account_prepare/.env` | notify (optional) | NetBird hint in email |
+| `SMTP_HOST`, `SMTP_USER` | `account_prepare/.env` | notify `--send` | See [`.env.example`](.env.example) |
+| `SMTP_PASSWORD` | `account_prepare/.env.secrets` | notify `--send` | See [`.env.secrets.example`](.env.secrets.example) |
+| `SMTP_FROM` | `account_prepare/.env` | notify `--send` (optional) | Defaults to `SMTP_USER`; set only when the visible From address differs |
+| `SMTP_PORT`, `SMTP_SSL`, `SMTP_USE_TLS`, `SMTP_DELAY_SECONDS` | `account_prepare/.env` | notify `--send` (optional) | See [`.env.example`](.env.example) |
 
 ---
 

@@ -35,7 +35,7 @@ def capture_pre_import_snapshot(
     """Fetch remote emails before import and write pre_import_snapshot.json."""
     if not token:
         raise PreImportSnapshotError(
-            "Missing PAT: set NETBIRD_TOKEN in .env to capture pre-import snapshot"
+            "Missing PAT: set NETBIRD_TOKEN in account_prepare/.env.secrets to capture pre-import snapshot"
         )
 
     try:

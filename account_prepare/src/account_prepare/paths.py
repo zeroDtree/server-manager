@@ -15,8 +15,8 @@ DEFAULT_PRE_IMPORT_SNAPSHOT = DEFAULT_DATA_DIR / "pre_import_snapshot.json"
 
 
 def load_repo_env() -> None:
-    load_dotenv(REPO_ROOT / ".env")
-    load_dotenv(REPO_ROOT / ".env.secrets")
+    load_dotenv(ACCOUNT_PREPARE_DIR / ".env")
+    load_dotenv(ACCOUNT_PREPARE_DIR / ".env.secrets")
 
 
 def delta_path(path: Path) -> Path:
