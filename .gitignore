@@ -36,3 +36,7 @@ compose.local.yaml
 backups/
 /data/
 __pycache__
+
+.claude/
+.cursor/
+.github/instructions/

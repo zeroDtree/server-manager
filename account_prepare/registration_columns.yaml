@@ -1,7 +1,0 @@
-# CSV column headers (data_collect export). Normalized when reading CSV.
-columns:
-  email: "邮箱"
-  linux_username: "linux账户名"
-  name: "真实姓名"
-  student_id: "学号"
-  cohort: "年级"

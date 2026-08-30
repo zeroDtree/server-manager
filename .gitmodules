@@ -7,9 +7,6 @@
 [submodule "gsad-backend"]
 	path = gsad-backend
 	url = git@github.com:zeroDtree/gsad-backend.git
-[submodule "netbird-manage"]
-	path = netbird-manage
-	url = git@github.com:zeroDtree/netbird-manage.git
-[submodule "data_collect"]
-	path = data_collect
-	url = git@github.com:zeroDtree/data_collect.git
+[submodule "account-prepare"]
+	path = account-prepare
+	url = git@github.com:zeroDtree/account-prepare.git
