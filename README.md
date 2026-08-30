@@ -94,5 +94,3 @@ Override a stored mode with `--prod`, `--external`, or `--local`.
 - [Backup, restore, and log rotation](docs/backup.md)
 - [GPU host agent install](server-agent/README.md)
 - [Student registration provisioning (WPS → CSV → NetBird/GSAD → email)](account-prepare/README.md)
-
-License: [LICENSE](LICENSE)
