@@ -29,7 +29,7 @@ In the sidebar, choose **New application**. Optionally enter an SSH login passwo
 
 ### Select a target server
 
-In the **Target server** dropdown, choose a node (for example `3090_415`), then click **Submit application**.
+In the **Target server** dropdown, choose a node, then click **Submit application**.
 
 ![Select a target server](./assets/apply-target.png)
 

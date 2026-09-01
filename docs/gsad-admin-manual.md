@@ -2,7 +2,7 @@
 
 ## Introduction {#gsad_admin}
 
-This guide is for accounts with the **Admin** role. The sidebar then shows **User management** and **Server management**.
+This guide is for accounts with the **Admin** role. The sidebar then shows **User management**, **Server management**, and **Settings**.
 
 Admins can also use every flow in the [user manual](./gsad-user-manual.md). Applying for access still creates a Linux account on the target host; it does not reserve GPUs exclusively.
 
@@ -114,6 +114,24 @@ Changing `linux_username` applies to later grants. Existing Linux accounts on GP
 > Deleting a GSAD account cannot be undone. Related application records are also deleted. Check **Also revoke and delete SSH/GPU accounts on servers** if you want the host agents to remove those Linux accounts and their data.
 
 If revoke is still pending, wait and retry delete later.
+
+---
+
+## Settings {#gsad_admin_settings}
+
+
+
+Open **Admin → Settings**. Admins can change login failure limits without restarting the backend:
+
+| Field | Default | Range |
+|-------|---------|-------|
+| Lockout window (minutes) | 15 | 1–1440 |
+| Max failures per email | 5 | 1–100 |
+| Max failures per IP | 30 | 1–1000 |
+
+Failed sign-in attempts accumulate in the window. After the last remaining attempt, GSAD returns HTTP 429 and tells the user how many minutes to wait. A successful sign-in clears the email and client IP counters. Existing Redis counters keep their current expiry if you change the window; new failures use the saved window.
+
+![Settings](./assets/admin-settings.png)
 
 ---
 
