@@ -1,13 +1,16 @@
 # Local development overrides: expose infra ports on the host.
+# Override host ports when 5432/6379/8080 are already in use:
+#   GSAD_DEV_POSTGRES_PORT=15432 GSAD_DEV_REDIS_PORT=16380 \
+#   GSAD_DEV_BACKEND_PORT=18080 ./utils/dev-up.sh -d
 services:
   postgres:
     ports:
-      - "5432:5432"
+      - "${GSAD_DEV_POSTGRES_PORT:-5432}:5432"
 
   redis:
     ports:
-      - "6379:6379"
+      - "${GSAD_DEV_REDIS_PORT:-6379}:6379"
 
   backend:
     ports:
-      - "8080:8080"
+      - "${GSAD_DEV_BACKEND_PORT:-8080}:8080"

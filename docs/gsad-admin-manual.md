@@ -2,7 +2,7 @@
 
 ## Introduction {#gsad_admin}
 
-This guide is for accounts with the **Admin** role. The sidebar then shows **User management**, **Server management**, and **Settings**.
+This guide is for accounts with the **Admin** role. The sidebar then shows **User management**, **Server management**, and **Settings**. The top-right **Language** control switches 中文 / English.
 
 Admins can also use every flow in the [user manual](./gsad-user-manual.md). Applying for access still creates a Linux account on the target host; it does not reserve GPUs exclusively.
 
@@ -13,17 +13,17 @@ First-admin bootstrap and stack deploy are in the [README](https://github.com/ze
 1. Open the GSAD sign-in page. Use the admin email created at deploy (`ADMIN_EMAIL=… ./utils/deploy-prod.sh`), or another account imported with `roles=admin`.
 2. After your first sign-in, change the console password from the sidebar. That does not change server SSH passwords.
 
-![GSAD login page](./assets/login.png)
+![GSAD login page](./assets/en/login.png)
 
 ---
 
 ## Server management {#gsad_admin_servers}
 
-Open **Admin → Server management**. The list shows server ID, status, last report, and agent PSK.
+Open **Admin → Server management**. The list shows server ID, status, last report, and agent PSK (masked). Use the eye icon to reveal a PSK and the copy button to copy it. The list paginates 20 rows at a time.
 
-![Server management](./assets/admin-server-manage.png)
+![Server management](./assets/en/admin-servers.png)
 
-Register each GPU host here before you install the agent. The `server_id` and `agent_psk` on the row must match `AGENT_SERVER_ID` and `AGENT_PSK` on that host. See [agent PSK](./agent-psk.md).
+Register each GPU host here before you install the agent. The `server_id` and `agent_psk` on the row must match `AGENT_SERVER_ID` and `AGENT_PSK` on that host. See [agent PSK](./agent-psk.md). Click a row to edit it.
 
 ### Add a server
 
@@ -31,9 +31,11 @@ Register each GPU host here before you install the agent. The `server_id` and `a
 2. Enter `server_id` and `agent_psk` (at least 16 characters). **Generate** fills a 32-byte hex value.
 3. Save, then copy the PSK into the host agent.
 
-![Add server](./assets/admin-add-server.png)
+![Add server](./assets/en/admin-servers-add.png)
 
 To edit a server, open its row. Leave the PSK empty to keep the current value. Changing the PSK requires updating the agent, or agent requests return 401. Renaming `server_id` also updates existing application rows that used the old ID.
+
+![Edit server](./assets/en/admin-server-detail.png)
 
 Treat the PSK and any export CSV as secrets (`chmod 600`, do not commit).
 
@@ -48,16 +50,15 @@ gpu-node-02,fedcba9876543210
 ```
 
 1. Click **Import CSV**.
-2. Choose the file and click **Start import**.
-3. Check created, updated, and row errors.
+2. Choose the file (`servers.csv` in the example below).
+3. Click **Start import**.
+4. Check created, updated, and row errors.
 
-![Import servers](./assets/admin-import-server-by-csv.png)
+![Import servers](./assets/en/admin-servers-import.png)
 
-![Select server CSV](./assets/admin-import-server-csv-select.png)
+![CSV selected](./assets/en/admin-servers-import-ready.png)
 
-![Server import in progress](./assets/admin-server-import-status.png)
-
-![Server import result](./assets/admin-server-import-result.png)
+![Server import result](./assets/en/admin-servers-import-result.png)
 
 Then install [server-agent](https://github.com/zeroDtree/server-agent) on each GPU host with the same `AGENT_SERVER_ID` and `AGENT_PSK`.
 
@@ -65,9 +66,15 @@ Then install [server-agent](https://github.com/zeroDtree/server-agent) on each G
 
 ## User management {#gsad_admin_users}
 
-Open **Admin → User management**. Filter by status, cohort, or role.
+Open **Admin → User management**. Filter with **Filter by cohort**, status (Active / Inactive), or role (Admin / User). The list paginates 20 rows at a time.
 
-![User management](./assets/admin-user-manage.png)
+![User management](./assets/en/admin-users.png)
+
+### Bulk actions
+
+Use the checkboxes plus **Select this page**, **Select all (N)**, or **Clear selection**. Then **Enable selected**, **Disable selected**, or **Delete selected**. Admin accounts cannot be included in bulk actions.
+
+A delete confirmation can also start host-side revoke. See [Enable, disable, and delete](#enable-disable-and-delete).
 
 ### Import users
 
@@ -79,18 +86,17 @@ alice@example.com,alice,Alice,2024001,2024,InitialPass1,user
 ```
 
 1. Click **Import users**.
-2. Choose the CSV and click **Start import**.
-3. Check created, updated, and row errors.
+2. Choose the CSV (`users.csv` in the example below).
+3. Click **Start import**.
+4. Check created, updated, and row errors.
 
-![Import users](./assets/admin-import-user.png)
+![Import users](./assets/en/admin-users-import.png)
 
-![Select user CSV](./assets/admin-user-import-csv-select.png)
+![CSV selected](./assets/en/admin-users-import-ready.png)
 
-![User import in progress](./assets/admin-user-import-csv-status.png)
+![User import result](./assets/en/admin-users-import-result.png)
 
-![User import result](./assets/admin-user-import-result.png)
-
-Distribute passwords through a secure channel. 
+Distribute passwords through a secure channel.
 
 For WPS → CSV → NetBird/GSAD → email, see [account-prepare](https://github.com/zeroDtree/account-prepare).
 
@@ -99,6 +105,8 @@ For WPS → CSV → NetBird/GSAD → email, see [account-prepare](https://github
 Click a row to open **User details**. You can change Linux username, name, cohort, tags, notes, and Active/Inactive. Student ID is shown from import and is not edited in this drawer.
 
 **Reset login password** sets a new GSAD console password (8–128 characters). It does not change server SSH passwords.
+
+![User details](./assets/en/admin-user-detail.png)
 
 Admin accounts cannot be disabled, deleted, or included in bulk actions.
 
@@ -119,9 +127,7 @@ If revoke is still pending, wait and retry delete later.
 
 ## Settings {#gsad_admin_settings}
 
-
-
-Open **Admin → Settings**. Admins can change login failure limits without restarting the backend:
+Open **Admin → Settings**. The form is titled **Login rate limit**. Admins can change these limits without restarting the backend:
 
 | Field | Default | Range |
 |-------|---------|-------|
@@ -131,7 +137,7 @@ Open **Admin → Settings**. Admins can change login failure limits without rest
 
 Failed sign-in attempts accumulate in the window. After the last remaining attempt, GSAD returns HTTP 429 and tells the user how many minutes to wait. A successful sign-in clears the email and client IP counters. Existing Redis counters keep their current expiry if you change the window; new failures use the saved window.
 
-![Settings](./assets/admin-settings.png)
+![Settings](./assets/en/admin-settings.png)
 
 ---
 

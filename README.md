@@ -1,8 +1,10 @@
 # GSAD — GPU Server Access Dashboard
 
+English | [中文](README.zh.md)
+
 GSAD lets you manage SSH access to GPU servers through a web UI. Team members **apply for access**, backend agents **provision Linux accounts** on GPU hosts, and lightweight reporters **send GPU metrics** back to the dashboard. Everything runs in Docker on a single central host, with agents deployed on each GPU machine.
 
-**Docs:** [https://zerodtree.github.io/server-manager/](https://zerodtree.github.io/server-manager/)
+Documentation: https://zerodtree.github.io/server-manager/
 
 ```mermaid
 flowchart TB
@@ -53,7 +55,7 @@ flowchart TB
     ```
     ADMIN_EMAIL=admin@example.com ./utils/deploy-prod.sh
     ```
-4. Log in with the admin from step 2.
+4. Log in with the admin email from step 3 (`ADMIN_EMAIL`).
 5. **Admin → Server management** — add hosts or import CSV (`server_id`, `agent_psk`); see [agent PSK](docs/agent-psk.md).
 6. Deploy [server-agent](https://github.com/zeroDtree/server-agent) on each GPU host with the same `AGENT_SERVER_ID`=`server_id`, `AGENT_PSK`=`agent_psk`.
 7. **Admin → User management** — import users.
@@ -85,6 +87,17 @@ Pass a flag on the first deploy for a different stack; later upgrades reuse the 
 - `--local` — HTTP on localhost for a prod-like tryout. Conflicts with an edge Traefik on the same host. See [local prod](docs/local-prod.md).
 
 Override a stored mode with `--prod`, `--external`, or `--local`.
+
+## Development
+
+Local UI plus mock GPU hosts (no Traefik):
+
+```bash
+./utils/dev-up.sh -d
+cd gsad-frontend && npm install && npm run dev
+```
+
+Open `http://localhost:5173`. Seeded admin: `admin@gsad.local` / `Admin@123456`. See [Development](docs/dev.md).
 
 ## Docs
 
