@@ -167,9 +167,10 @@ const config = withMermaid(
       elk: {
         lineHops: 'arc',
       },
-      // Mermaid 12 ELK can size foreignObject slightly smaller than wrapped edge labels.
+      // Fallback when a label is still a pixel taller than its foreignObject.
       themeCSS: `
-        .edgeLabel foreignObject {
+        .edgeLabel foreignObject,
+        .node foreignObject {
           overflow: visible;
         }
       `,

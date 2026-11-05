@@ -1,0 +1,7 @@
+/* VitePress `.vp-doc p` sets line-height and margin. Those rules also match
+   HTML labels inside Mermaid foreignObjects, so the drawn boxes are shorter
+   than the text. Reset them so labels fit the size Mermaid measured. */
+.vp-doc .mermaid p {
+  margin: 0;
+  line-height: 1.5;
+}
