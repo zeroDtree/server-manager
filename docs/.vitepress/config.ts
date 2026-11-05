@@ -1,5 +1,9 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
+
+const vitepressDir = path.dirname(fileURLToPath(import.meta.url))
 
 const GITHUB = 'https://github.com/zeroDtree/server-manager'
 const AGENT = 'https://github.com/zeroDtree/server-agent'
@@ -11,6 +15,20 @@ const config = withMermaid(
     description: 'GPU Server Access Dashboard',
     base: '/server-manager/',
     ignoreDeadLinks: [/\.\.\//],
+    vite: {
+      resolve: {
+        alias: {
+          'elkjs/lib/elk.bundled.js': path.resolve(
+            vitepressDir,
+            'elk-bundled-shim.mjs',
+          ),
+        },
+      },
+      optimizeDeps: {
+        include: ['elkjs/lib/elk.bundled.js'],
+        needsInterop: ['elkjs/lib/elk.bundled.js'],
+      },
+    },
     themeConfig: {
       socialLinks: [{ icon: 'github', link: GITHUB }],
       search: {
@@ -144,10 +162,22 @@ const config = withMermaid(
         },
       },
     },
+    mermaid: {
+      layout: 'elk',
+      elk: {
+        lineHops: 'arc',
+      },
+      // Mermaid 12 ELK can size foreignObject slightly smaller than wrapped edge labels.
+      themeCSS: `
+        .edgeLabel foreignObject {
+          overflow: visible;
+        }
+      `,
+    },
   }),
 )
 
-// mermaid 11 no longer depends on debug; the plugin still lists it for prebundle.
+// The plugin still lists debug for prebundle; mermaid no longer depends on it.
 const include = config.vite?.optimizeDeps?.include
 if (include) {
   config.vite!.optimizeDeps!.include = include.filter((id) => id !== 'debug')

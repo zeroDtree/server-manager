@@ -52,6 +52,28 @@ cd docs && npm install && npm run dev
 
 VitePress 在打印出的本地地址提供手册（截图在 `docs/assets/en/` 与 `docs/assets/zh/`）。站点根路径为英文，`/zh/` 为中文。
 
+### Mermaid 图
+
+文档站在 `docs/package.json` 中固定 Mermaid 12。全站默认写在 `.vitepress/config.ts`：使用 ELK 布局，边交叉处画一小段拱起（line hop，`elk.lineHops: 'arc'`）。单张图可在代码块内用 YAML frontmatter 覆盖；只对写明的键生效。
+
+~~~markdown
+```mermaid
+---
+config:
+  layout: elk
+  elk:
+    lineHops: arc
+---
+flowchart TB
+  A --> C
+  B --> D
+```
+~~~
+
+GitHub 上的 `README.md` 由 GitHub 自带的 Mermaid 渲染，不受这里的版本约束。
+
+若在 `npm run dev` 里图不显示（升级 Mermaid / `elkjs` 后较常见），先停掉 dev，执行 `rm -rf .vitepress/cache` 再启动。ELK 布局依赖 `.vitepress/config.ts` 里的 Vite alias（`elk-bundled-shim.mjs`）。
+
 ### 重拍截图
 
 手册使用 1440×900（2×）的控制台 PNG。UI 在 `:5173` 且已安装 Playwright 时：

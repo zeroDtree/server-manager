@@ -52,6 +52,28 @@ cd docs && npm install && npm run dev
 
 VitePress serves the manuals (screenshots under `docs/assets/en/` and `docs/assets/zh/`) at the printed local URL. The site root is English; `/zh/` is Chinese.
 
+### Mermaid diagrams
+
+The docs site pins Mermaid 12 in `docs/package.json`. Site-wide defaults live in `.vitepress/config.ts`: ELK layout, with a small arc (line hop) where edges cross (`elk.lineHops: 'arc'`). A single diagram can override those defaults with YAML frontmatter inside its fence; only the keys you set apply to that diagram.
+
+~~~markdown
+```mermaid
+---
+config:
+  layout: elk
+  elk:
+    lineHops: arc
+---
+flowchart TB
+  A --> C
+  B --> D
+```
+~~~
+
+GitHub renders `README.md` with its own Mermaid version. That preview does not use this pin.
+
+If diagrams are blank in `npm run dev` after upgrading Mermaid or `elkjs`, stop the dev server, run `rm -rf .vitepress/cache`, and start dev again. ELK layout needs the Vite alias in `.vitepress/config.ts` (`elk-bundled-shim.mjs`).
+
 ### Recapture screenshots
 
 Manuals use 1440×900 (2×) PNG shots of the console. With the UI on `:5173` and Playwright available:
